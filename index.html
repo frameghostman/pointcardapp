@@ -12,8 +12,8 @@
     --light-gray: #f8f9fa;
     --gray: #6c757d;
     --border-color: #dee2e6;
-    --border-radius: 12px;
-    --shadow: 0 4px 12px rgba(0,0,0,.08);
+    --border-radius: 10px;
+    --shadow: 0 2px 8px rgba(0,0,0,.07);
   }
   html,body {
     height: 100%;
@@ -21,60 +21,55 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     margin: 0;
-    display: grid;
-    place-items: start center;
+    display: flex;
+    flex-direction: column;
     background-color: var(--light-gray);
     color: #333;
-    line-height: 1.6;
+    line-height: 1.5;
   }
   main {
     width: min(100%, var(--w));
-    padding: 16px;
+    padding: 8px;
     box-sizing: border-box;
+    flex-grow: 1;
+    margin: 0 auto;
   }
   .header {
     text-align: center;
-    margin-bottom: 24px;
-    padding: 20px 0;
+    margin-bottom: 16px;
+    padding: 12px 0;
   }
   .header h1 {
-    font-size: 28px;
+    font-size: 24px;
     font-weight: 700;
     color: #222;
-    margin: 0 0 16px;
-  }
-  .header .user-info {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    margin: 0 0 12px;
   }
   section {
     background: #fff;
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    padding: 20px;
-    margin: 16px 0;
+    padding: 16px;
+    margin: 12px 0;
     box-shadow: var(--shadow);
-    transition: all 0.3s ease;
   }
   h2 {
-    font-size: 20px;
-    margin: 0 0 16px;
+    font-size: 18px;
+    margin: 0 0 12px;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     color: #333;
     font-weight: 600;
   }
   h2 .icon {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     color: var(--primary-color);
   }
   label {
     display: block;
-    margin: 12px 0 6px;
+    margin: 10px 0 5px;
     font-size: 14px;
     font-weight: 600;
     color: var(--gray);
@@ -82,7 +77,7 @@
   input {
     box-sizing: border-box;
     width: 100%;
-    padding: 12px 14px;
+    padding: 10px 12px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
     font-size: 16px;
@@ -98,7 +93,7 @@
     cursor: pointer;
     border: 0;
     border-radius: 8px;
-    padding: 12px 18px;
+    padding: 10px 16px;
     font-size: 16px;
     font-weight: 600;
     transition: background-color 0.2s, transform 0.1s;
@@ -125,7 +120,7 @@
     display: flex;
     gap: 8px;
     align-items: center;
-    margin-top: 12px;
+    margin-top: 10px;
     flex-wrap: wrap;
   }
   #reader {
@@ -133,10 +128,10 @@
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     overflow: hidden;
-    margin-top: 16px;
+    margin-top: 12px;
   }
   #msg, #authMsg, #redeemMsg, #result {
-    margin-top: 12px;
+    margin-top: 10px;
     min-height: 1.2em;
     font-size: 14px;
     text-align: center;
@@ -146,13 +141,31 @@
   .err  { color: #dc3545; font-weight: 600; }
   .pill {
     display: inline-block;
-    padding: 8px 18px;
+    padding: 6px 16px;
     border-radius: 999px;
     background: var(--primary-color);
     color: #fff;
     font-weight: 700;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
+  }
+  small {
+    display: block;
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--gray);
+    text-align: center;
+  }
+  footer {
+    text-align: center;
+    padding: 16px;
+    box-sizing: border-box;
+    width: min(100%, var(--w));
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
   }
   #who  {
     font-size: 13px;
@@ -163,35 +176,14 @@
     padding: 6px 12px;
     width: auto;
   }
-  small {
-    display: block;
-    margin-top: 12px;
-    font-size: 13px;
-    color: var(--gray);
-    text-align: center;
-  }
-  details {
-    margin-top: 16px;
-    border-top: 1px solid var(--border-color);
-    padding-top: 16px;
-  }
-  summary {
-    cursor: pointer;
-    font-weight: 600;
-    color: var(--gray);
-  }
 </style>
 </head>
 <body>
 <main>
   <div class="header">
     <h1>スタンプカード</h1>
-    <div id="points-display" style="display:none; margin-bottom: 16px;">
+    <div id="points-display" style="display:none; margin-bottom: 12px;">
       <span id="points" class="pill"></span>
-    </div>
-    <div id="user-info" class="user-info" style="display:none;">
-      <span id="who"></span>
-      <button id="topLogout" class="btn secondary">ログアウト</button>
     </div>
   </div>
 
@@ -230,15 +222,6 @@
     </div>
     <div id="reader"></div>
 
-    <details>
-      <summary>テスト用に手入力</summary>
-      <label for="manual">QR文字列 or URL</label>
-      <input id="manual" placeholder="S:SHOP01:... もしくは https://.../?q=..." />
-      <div class="row">
-        <button class="btn secondary" id="sendManual">送信</button>
-      </div>
-    </details>
-
     <div id="result"></div>
   </section>
 
@@ -248,7 +231,6 @@
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a8.25 8.25 0 01-16.5 0v-8.25a8.25 8.25 0 0116.5 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 003.75-3.75h-7.5a3.75 3.75 0 003.75 3.75z" /></svg>
       特典と交換（店員操作）
     </h2>
-    <label for="pin">店舗PINコード</label>
     <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4桁のPIN" />
     <div class="row">
       <button class="btn" id="redeemBtn">10ptで特典と交換する</button>
@@ -258,6 +240,10 @@
 
   <div id="msg"></div>
 </main>
+<footer id="user-info" style="display:none;">
+  <span id="who"></span>
+  <button id="topLogout" class="btn secondary">ログアウト</button>
+</footer>
 
 <!-- QRライブラリ -->
 <script src="https://unpkg.com/html5-qrcode"></script>
