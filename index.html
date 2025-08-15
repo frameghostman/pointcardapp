@@ -376,14 +376,16 @@ $("verify").addEventListener("click", async () => {
       setLoginState(true);
       await loadStatus();
 
-      // 保留中のスタンプ処理を実行
-      const pendingPayload = sessionStorage.getItem('pending_stamp_payload');
-      if (pendingPayload) {
+      // ▼▼▼【修正】localStorageから保留中のスタンプ処理を実行 ▼▼▼
+      const pendingStamp = JSON.parse(localStorage.getItem('pending_stamp') || 'null');
+      // 10分以内に保存されたペイロードなら処理を実行
+      if (pendingStamp && pendingStamp.payload && Date.now() - pendingStamp.timestamp < 600000) {
         $("result").textContent = "ログインしました。ポイントを付与しています…";
         $("result").className = "";
-        await sendStamp(pendingPayload);
-        sessionStorage.removeItem('pending_stamp_payload'); // 処理後に削除
+        await sendStamp(pendingStamp.payload);
       }
+      localStorage.removeItem('pending_stamp'); // 成功・失敗に関わらず削除
+      // ▲▲▲【修正】ここまで ▲▲▲
     } else {
       $("authMsg").textContent = r.error || "認証失敗";
       $("authMsg").className = "err";
@@ -399,7 +401,7 @@ function doLogout(isExpired = false, msg = "ログアウトしました") {
   USER_EMAIL = "";
   localStorage.removeItem("token");
   localStorage.removeItem("email");
-  sessionStorage.removeItem('pending_stamp_payload'); // ログアウト時に保留ペイロードも削除
+  localStorage.removeItem('pending_stamp'); // ログアウト時に保留ペイロードも削除
   setLoginState(false);
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
@@ -459,10 +461,15 @@ if (qrPayloadFromUrl) {
     $("result").className = "";
     sendStamp(qrPayloadFromUrl);
   } else {
-    // 未ログインならペイロードを一時保存
-    sessionStorage.setItem('pending_stamp_payload', qrPayloadFromUrl);
+    // ▼▼▼【修正】未ログインならペイロードをlocalStorageに一時保存 ▼▼▼
+    const pendingStamp = {
+      payload: qrPayloadFromUrl,
+      timestamp: Date.now() // 保存した時刻も記録
+    };
+    localStorage.setItem('pending_stamp', JSON.stringify(pendingStamp));
     $("authMsg").textContent = "ポイントを付けるにはログインしてください";
     $("authMsg").className = "warn";
+    // ▲▲▲【修正】ここまで ▲▲▲
   }
   // URLからクエリパラメータを削除してリロードでの再付与を防止
   history.replaceState(null, '', window.location.pathname);
