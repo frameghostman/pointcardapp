@@ -464,6 +464,8 @@ if (qrPayloadFromUrl) {
     $("authMsg").textContent = "ポイントを付けるにはログインしてください";
     $("authMsg").className = "warn";
   }
+  // URLからクエリパラメータを削除してリロードでの再付与を防止
+  history.replaceState(null, '', window.location.pathname);
 }
 </script>
 </body>
