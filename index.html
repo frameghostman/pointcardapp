@@ -388,20 +388,21 @@ async function onScanSuccess(decodedText, decodedResult) {
   await $("stopScan").click(); // スキャン成功したら止める
   $("result").textContent = "QRコードを読み取りました。通信中…";
   $("result").className = "";
-  await sendStamp(decodedText);
-}
-function onScanFailure(error) { /* 毎回呼ばれるので無視 */ }
 
-$("sendManual").addEventListener("click", async () => {
-  const text = $("manual").value;
-  if (!text) return;
-  let payload = text;
-  // URLからq=...を抜き出す
-  if (text.startsWith("http")) {
-    try { payload = new URL(text).searchParams.get("q") || text; } catch(e){}
+  // URLからペイロードを抽出
+  let payload = decodedText;
+  try {
+    const url = new URL(decodedText);
+    if (url.searchParams.has('q')) {
+      payload = url.searchParams.get('q');
+    }
+  } catch(e) {
+    // URLでなければ、スキャンしたテキスト全体をペイロードとして扱う
   }
   await sendStamp(payload);
-});
+}
+
+function onScanFailure(error) { /* 毎回呼ばれるので無視 */ }
 
 async function sendStamp(payload) {
   try {
@@ -445,6 +446,15 @@ $("redeemBtn").addEventListener("click", async () => {
 setLoginState(!!TOKEN);
 loadStatus(); // 起動時に現在ポイントを表示（tokenが有効なら）
 
+// ページ読み込み時にURLパラメータをチェック
+const urlParams = new URLSearchParams(window.location.search);
+const qrPayloadFromUrl = urlParams.get('q');
+if (qrPayloadFromUrl && TOKEN) {
+  // ログイン済みで、URLに 'q' パラメータがある場合、自動でスタンプ処理を実行
+  $("result").textContent = "URLからスタンプ情報を読み込みました。処理中…";
+  $("result").className = "";
+  sendStamp(qrPayloadFromUrl);
+}
 </script>
 </body>
 </html>
