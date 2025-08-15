@@ -123,13 +123,6 @@
     margin-top: 10px;
     flex-wrap: wrap;
   }
-  #reader {
-    width: 100%;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    margin-top: 12px;
-  }
   #msg, #authMsg, #redeemMsg, #result {
     margin-top: 10px;
     min-height: 1.2em;
@@ -176,6 +169,39 @@
     padding: 6px 12px;
     width: auto;
   }
+  /* スタンプカードUIのスタイル */
+  #stamp-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: #fff;
+  }
+  .stamp-slot {
+    width: 100%;
+    padding-bottom: 100%; /* 正方形を維持 */
+    position: relative;
+    background-color: var(--light-gray);
+    border-radius: 50%;
+    border: 2px solid var(--border-color);
+  }
+  .stamp-slot.filled {
+    background-color: #ffd700; /* Gold */
+    border-color: #e6c200;
+    color: white;
+  }
+  .stamp-slot.filled::before {
+    content: '★';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
 </style>
 </head>
 <body>
@@ -210,19 +236,10 @@
     <small>※コードは10分有効です。届かない場合は迷惑メールフォルダをご確認ください。</small>
   </section>
 
-  <!-- スキャン（ログイン済みのみ表示） -->
-  <section id="scan" style="display:none;">
-    <h2>
-      <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.5a3 3 0 00-3 3v10.5a3 3 0 003 3h10.5a3 3 0 003-3V7.5a3 3 0 00-3-3H3.75zM14.25 8.625a1.125 1.125 0 11-2.25 0 1.125 1.125 0 012.25 0zM16.5 12a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" /></svg>
-      スタンプを貯める
-    </h2>
-    <div class="row">
-      <button class="btn" id="startScan">QRコードをスキャン</button>
-      <button class="btn secondary" id="stopScan" disabled>停止</button>
-    </div>
-    <div id="reader"></div>
-
-    <div id="result"></div>
+  <!-- スタンプカードUI（ログイン済みのみ表示） -->
+  <section id="stamp-card-container" style="display:none;">
+    <h2>現在のスタンプ</h2>
+    <div id="stamp-grid"></div>
   </section>
 
   <!-- 引換（店員用、ログイン済みのみ表示） -->
@@ -239,14 +256,13 @@
   </section>
 
   <div id="msg"></div>
+  <div id="result"></div>
 </main>
 <footer id="user-info" style="display:none;">
   <span id="who"></span>
   <button id="topLogout" class="btn secondary">ログアウト</button>
 </footer>
 
-<!-- QRライブラリ -->
-<script src="https://unpkg.com/html5-qrcode"></script>
 <script>
 /** あなたのGASウェブアプリURL（/exec） */
 const API = "https://script.google.com/macros/s/AKfycbxOR48ttoDzNqza-LOukLSh1YgSRH6lyJQtiJ0Ft3lApK-pEbeZF0h8FqQff2Lohs-Wgg/exec";
@@ -269,13 +285,13 @@ const show = (el, on) => (el.style.display = on ? "" : "none");
 let TOKEN = localStorage.getItem("token") || "";
 let USER_EMAIL = localStorage.getItem("email") || "";
 
-/** 画面出し分け（ログイン済みならauthを隠す） */
+/** 画面出し分け */
 function setLoginState(loggedIn) {
   show($("auth"),   !loggedIn);
-  show($("scan"),    loggedIn);
   show($("redeem"),  loggedIn);
-
   show($("user-info"), loggedIn);
+  show($("stamp-card-container"), loggedIn);
+
   $("who").textContent = loggedIn ? `ログイン中: ${USER_EMAIL || "-"}` : "";
 
   if (!loggedIn) {
@@ -286,7 +302,22 @@ function setLoginState(loggedIn) {
   }
 }
 
-/** 現在ポイントの読み込み（必要ならメールも補完） */
+/** スタンプカードUI更新 */
+function updateStampCard(points) {
+  const grid = $('stamp-grid');
+  grid.innerHTML = ''; // 既存のスタンプをクリア
+  const displayStamps = Math.min(points, 30); // 表示するスタンプは30個まで
+  for (let i = 0; i < 30; i++) {
+    const slot = document.createElement('div');
+    slot.className = 'stamp-slot';
+    if (i < displayStamps) {
+      slot.classList.add('filled');
+    }
+    grid.appendChild(slot);
+  }
+}
+
+/** 現在ポイントの読み込みとUI更新 */
 async function loadStatus() {
   if (!TOKEN) return;
   try {
@@ -294,6 +325,8 @@ async function loadStatus() {
     if (r.ok) {
       show($("points-display"), true);
       $("points").textContent = `現在 ${r.points} pt`;
+      updateStampCard(r.points); // スタンプカードUIを更新
+
       if (r.email && !USER_EMAIL) {
         USER_EMAIL = r.email;
         localStorage.setItem("email", USER_EMAIL);
@@ -342,6 +375,15 @@ $("verify").addEventListener("click", async () => {
       $("authMsg").className = "ok";
       setLoginState(true);
       await loadStatus();
+
+      // 保留中のスタンプ処理を実行
+      const pendingPayload = sessionStorage.getItem('pending_stamp_payload');
+      if (pendingPayload) {
+        $("result").textContent = "ログインしました。ポイントを付与しています…";
+        $("result").className = "";
+        await sendStamp(pendingPayload);
+        sessionStorage.removeItem('pending_stamp_payload'); // 処理後に削除
+      }
     } else {
       $("authMsg").textContent = r.error || "認証失敗";
       $("authMsg").className = "err";
@@ -357,60 +399,21 @@ function doLogout(isExpired = false, msg = "ログアウトしました") {
   USER_EMAIL = "";
   localStorage.removeItem("token");
   localStorage.removeItem("email");
+  sessionStorage.removeItem('pending_stamp_payload'); // ログアウト時に保留ペイロードも削除
   setLoginState(false);
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
 }
 $("topLogout").addEventListener("click", () => doLogout());
 
-
-/** ===== QRスキャン ===== */
-const html5QrCode = new Html5Qrcode("reader");
-
-$("startScan").addEventListener("click", () => {
-  $("startScan").disabled = true;
-  $("stopScan").disabled = false;
-  $("result").textContent = "カメラを起動中…";
-  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-  html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess, onScanFailure);
-});
-
-$("stopScan").addEventListener("click", async () => {
-  try {
-    await html5QrCode.stop();
-    $("startScan").disabled = false;
-    $("stopScan").disabled = true;
-    $("result").textContent = "カメラを停止しました";
-  } catch(e) { /* ignore */ }
-});
-
-async function onScanSuccess(decodedText, decodedResult) {
-  await $("stopScan").click(); // スキャン成功したら止める
-  $("result").textContent = "QRコードを読み取りました。通信中…";
-  $("result").className = "";
-
-  // URLからペイロードを抽出
-  let payload = decodedText;
-  try {
-    const url = new URL(decodedText);
-    if (url.searchParams.has('q')) {
-      payload = url.searchParams.get('q');
-    }
-  } catch(e) {
-    // URLでなければ、スキャンしたテキスト全体をペイロードとして扱う
-  }
-  await sendStamp(payload);
-}
-
-function onScanFailure(error) { /* 毎回呼ばれるので無視 */ }
-
+/** ===== ポイント付与 ===== */
 async function sendStamp(payload) {
   try {
     const r = await postJSON({ action: "stamp", token: TOKEN, qr_payload: payload });
     if (r.ok) {
       $("result").textContent = `スタンプを押しました！ → 現在 ${r.points} pt`;
       $("result").className = "ok";
-      await loadStatus(); // ポイントを再読み込み
+      await loadStatus(); // ポイントとスタンプカードUIを再読み込み
     } else {
       $("result").textContent = r.error || "スタンプ処理に失敗";
       $("result").className = "err";
@@ -431,7 +434,7 @@ $("redeemBtn").addEventListener("click", async () => {
     if (r.ok) {
       $("redeemMsg").textContent = `引換成功！ Ticket: ${r.ticket}`;
       $("redeemMsg").className = "ok";
-      await loadStatus(); // ポイントを再読み込み
+      await loadStatus(); // ポイントとスタンプカードUIを再読み込み
     } else {
       $("redeemMsg").textContent = r.error || "引換失敗";
       $("redeemMsg").className = "err";
@@ -444,16 +447,23 @@ $("redeemBtn").addEventListener("click", async () => {
 
 // 初期化
 setLoginState(!!TOKEN);
-loadStatus(); // 起動時に現在ポイントを表示（tokenが有効なら）
+loadStatus();
 
 // ページ読み込み時にURLパラメータをチェック
 const urlParams = new URLSearchParams(window.location.search);
 const qrPayloadFromUrl = urlParams.get('q');
-if (qrPayloadFromUrl && TOKEN) {
-  // ログイン済みで、URLに 'q' パラメータがある場合、自動でスタンプ処理を実行
-  $("result").textContent = "URLからスタンプ情報を読み込みました。処理中…";
-  $("result").className = "";
-  sendStamp(qrPayloadFromUrl);
+if (qrPayloadFromUrl) {
+  if (TOKEN) {
+    // ログイン済みなら即スタンプ
+    $("result").textContent = "URLからスタンプ情報を読み込みました。処理中…";
+    $("result").className = "";
+    sendStamp(qrPayloadFromUrl);
+  } else {
+    // 未ログインならペイロードを一時保存
+    sessionStorage.setItem('pending_stamp_payload', qrPayloadFromUrl);
+    $("authMsg").textContent = "ポイントを付けるにはログインしてください";
+    $("authMsg").className = "warn";
+  }
 }
 </script>
 </body>
