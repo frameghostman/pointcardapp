@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>スタンプカード</title>
+<style>
+  :root { --w: 420px; }
+  html,body { height:100%; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Sans", "Noto Sans JP", sans-serif; margin:0; display:grid; place-items:start center; background:#fafafa; }
+  main { width:min(100%, var(--w)); padding:24px; }
+  h1 { font-size:20px; margin:8px 0 12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  section { background:#fff; border:1px solid #eee; border-radius:12px; padding:16px; margin:12px 0; box-shadow:0 1px 6px rgba(0,0,0,.05); }
+  h2 { font-size:18px; margin:0 0 8px; }
+  label { display:block; margin:8px 0 4px; font-size:14px; }
+  input { width:100%; padding:10px 12px; border:1px solid #ddd; border-radius:10px; font-size:16px; background:#fff; }
+  button { cursor:pointer; border:0; border-radius:10px; padding:10px 14px; font-size:16px; }
+  .btn { background:#111; color:#fff; }
+  .btn.secondary { background:#f0f0f0; color:#111; }
+  .row { display:flex; gap:8px; align-items:center; margin-top:8px; flex-wrap:wrap; }
+  #reader { width:100%; max-width:var(--w); }
+  #msg, #authMsg, #redeemMsg, #result { margin-top:10px; min-height:1.2em; font-size:14px; }
+  .ok   { color:#0a7a2e; }
+  .warn { color:#b86e00; }
+  .err  { color:#b00020; }
+  .pill { display:inline-block; padding:4px 10px; border-radius:999px; background:#eef6ff; color:#1b4d9a; font-weight:600; font-size:13px; }
+  #who  { font-size:13px; color:#555; }
+  small { color:#666; }
+  details { margin-top:10px; }
+</style>
+</head>
+<body>
+<main>
+  <!-- スタンプカード情報 : ログインしてるなら points,who,topLogout表示 -->
+  <h1>
+    スタンプカード
+    <span id="points" class="pill" style="display:none;"></span>
+    <span id="who" style="display:none;"></span>
+    <button id="topLogout" class="btn secondary" style="display:none;">ログアウト</button>
+  </h1>
+
+  <!-- 認証（メールOTP）: ログイン済みなら丸ごと非表示 -->
+  <section id="auth">
+    <h2>ログイン</h2>
+    <label for="email">メールアドレス</label>
+    <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+    <div class="row">
+      <button class="btn" id="sendCode">コード送信</button>
+    </div>
+
+    <div id="otpArea" style="display:none;margin-top:10px;">
+      <label for="code">受信した6桁コード</label>
+      <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="123456" />
+      <div class="row">
+        <button class="btn" id="verify">ログイン</button>
+      </div>
+    </div>
+    <div id="authMsg"></div>
+    <small>※コードは10分有効。届かない場合は迷惑メールを確認。</small>
+  </section>
+
+  <!-- スキャン（ログイン済みのみ表示） -->
+  <section id="scan" style="display:none;">
+    <h2>QRスキャン</h2>
+    <div class="row">
+      <button class="btn" id="startScan">カメラで読み取る</button>
+      <button class="btn secondary" id="stopScan" disabled>停止</button>
+    </div>
+    <div id="reader" style="margin-top:10px;"></div>
+
+    <details>
+      <summary>手入力で送る（テスト用）</summary>
+      <label for="manual">QR文字列 or URL</label>
+      <input id="manual" placeholder="S:SHOP01:... もしくは https://.../?q=..." />
+      <div class="row">
+        <button class="btn secondary" id="sendManual">送信</button>
+      </div>
+    </details>
+
+    <div id="result"></div>
+  </section>
+
+  <!-- 引換（店員用、ログイン済みのみ表示） -->
+  <section id="redeem" style="display:none;">
+    <h2>特典引換（店員用）</h2>
+    <label for="pin">当日PIN</label>
+    <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" />
+    <div class="row">
+      <button class="btn secondary" id="redeemBtn">引換</button>
+    </div>
+    <div id="redeemMsg"></div>
+  </section>
+
+  <div id="msg"></div>
+</main>
+
+<!-- QRライブラリ -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+/** あなたのGASウェブアプリURL（/exec） */
+const API = "https://script.google.com/macros/s/AKfycbxOR48ttoDzNqza-LOukLSh1YgSRH6lyJQtiJ0Ft3lApK-pEbeZF0h8FqQff2Lohs-Wgg/exec";
+
+/** CORS簡略化のため Content-Type: text/plain（プリフライト回避） */
+async function postJSON(payload) {
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify(payload)
+  });
+  return res.json(); // 失敗も {ok:false,error:"..."} を返す想定
+}
+
+/** ユーティリティ */
+const $ = (id) => document.getElementById(id);
+const show = (el, on) => (el.style.display = on ? "" : "none");
+
+/** 状態 */
+let TOKEN = localStorage.getItem("token") || "";
+let USER_EMAIL = localStorage.getItem("email") || "";
+
+/** 画面出し分け（ログイン済みならauthを隠す） */
+function setLoginState(loggedIn) {
+  show($("auth"),   !loggedIn);
+  show($("scan"),    loggedIn);
+  show($("redeem"),  loggedIn);
+
+  $("topLogout").style.display = loggedIn ? "" : "none";
+  $("who").style.display = loggedIn ? "" : "none";
+  $("who").textContent = loggedIn ? `ログイン中: ${USER_EMAIL || "-"}` : "";
+
+  if (!loggedIn) {
+    $("points").style.display = "none";
+    $("points").textContent = "";
+    $("authMsg").textContent = "";
+    $("authMsg").className = "";
+  }
+}
+
+/** 現在ポイントの読み込み */
+async function loadStatus() {
+  if (!TOKEN) return;
+  try {
+    const r = await postJSON({ action: "me", token: TOKEN });
+    if (r.ok) {
+      $("points").style.display = "";
+      $("points").textContent = `現在 ${r.points} pt`;
+      if (r.email && !USER_EMAIL) {
+        USER_EMAIL = r.email;
+        localStorage.setItem("email", USER_EMAIL);
+        $("who").textContent = `ログイン中: ${USER_EMAIL}`;
+      }
+    } else {
+      doLogout(true, "セッションが切れました。再ログインしてください。");
+    }
+  } catch (_) { /* オフライン等は無視 */ }
+}
+
+/** ===== 認証（メールOTP） ===== */
+$("sendCode").addEventListener("click", async () => {
+  const email = $("email").value.trim();
+  if (!email) { $("authMsg").textContent = "メールを入力してください"; $("authMsg").className="err"; return; }
+  $("authMsg").textContent = "送信中…"; $("authMsg").className="";
+  try {
+    const r = await postJSON({ action: "auth_start", email });
+    if (r.ok) {
+      $("authMsg").textContent = "コードを送信しました。メールを確認してください。";
+      $("authMsg").className = "ok";
+      show($("otpArea"), true);
+    } else {
+      $("authMsg").textContent = r.error || "送信に失敗しました";
+      $("authMsg").className = "err";
+    }
+  } catch (e) {
+    $("authMsg").textContent = "通信エラー: " + e;
+    $("authMsg").className = "err";
+  }
+});
+
+$("verify").addEventListener("click", async () => {
+  const email = $("email").value.trim();
+  const code  = $("code").value.trim();
+  if (!email || !code) { $("authMsg").textContent = "メールとコードを入力"; $("authMsg").className="err"; return; }
+  $("authMsg").textContent = "検証中…"; $("authMsg").className="";
+  try {
+    const r = await postJSON({ action: "auth_verify", email, code });
+    if (r.ok && r.token) {
+      TOKEN = r.token;
+      USER_EMAIL = email;                        // ← ログインしたメールを保持
+      localStorage.setItem("token", TOKEN);
+      localStorage.setItem("email", USER_EMAIL);
+      $("authMsg").textContent = "ログイン成功";
+      $("authMsg").className = "ok";
+      setLoginState(true);
+      loadStatus();
+    } else {
+      $("authMsg").textContent = r.error || "認証失敗";
+      $("authMsg").className = "err";
+    }
+  } catch (e) {
+    $("authMsg").textContent = "通信エラー: " + e;
+    $("authMsg").className = "err";
+  }
+});
+
+/** ログアウト（上部ボタン） */
+function doLogout(silent=false, msg="") {
+  localStorage.removeItem("token");
+  localStorage.removeItem("email");
+  TOKEN = "";
+  USER_EMAIL = "";
+  setLoginState(false);
+  if (msg) { $("authMsg").textContent = msg; $("authMsg").className = "warn"; }
+}
+$("topLogout").addEventListener("click", () => doLogout());
+
+/** ===== スタンプ（QR or 手入力） ===== */
+function extractPayload(qrText) {
+  try {
+    if (/^https?:\/\//i.test(qrText)) {
+      const url = new URL(qrText);
+      return url.searchParams.get("q") || qrText;
+    }
+  } catch (_) {}
+  return qrText;
+}
+
+async function stamp(qrText) {
+  if (!TOKEN) { $("result").textContent = "ログインしてください"; return; }
+  const payload = extractPayload(qrText);
+  $("result").textContent = "送信中…";
+  try {
+    const r = await postJSON({ action: "stamp", token: TOKEN, qr_payload: payload });
+    if (r.ok) {
+      $("result").innerHTML = `<span class="ok">スタンプOK：${r.points} pt</span>`;
+      $("points").style.display = "";
+      $("points").textContent = `現在 ${r.points} pt`;
+    } else {
+      if (/session|expired|token/i.test(r.error || "")) {
+        doLogout(true, "セッションが切れました。再ログインしてください。");
+      }
+      $("result").innerHTML = `<span class="warn">${r.error || "失敗"}</span>`;
+    }
+  } catch (e) {
+    $("result").innerHTML = `<span class="err">通信エラー: ${e}</span>`;
+  }
+}
+
+/** ===== カメラでスキャン ===== */
+let qrInstance = null;
+$("startScan").addEventListener("click", async () => {
+  $("result").textContent = "";
+  $("stopScan").disabled = false;
+  try {
+    const cams = await Html5Qrcode.getCameras();
+    const back = cams.find(c => /back|environment/i.test(c.label))?.id;
+    qrInstance = new Html5Qrcode("reader");
+    await qrInstance.start(
+      back ? { deviceId:{ exact: back } } : { facingMode: "environment" },
+      { fps:10, qrbox:250 },
+      async (decodedText) => {
+        await qrInstance.stop();
+        $("stopScan").disabled = true;
+        await stamp(decodedText);
+      },
+      () => {}
+    );
+  } catch (e) {
+    $("result").innerHTML = `<span class="err">カメラ起動失敗: ${e}</span>`;
+    $("stopScan").disabled = true;
+  }
+});
+$("stopScan").addEventListener("click", async () => {
+  if (qrInstance) { try { await qrInstance.stop(); } catch(_){} }
+  $("stopScan").disabled = true;
+});
+
+/** 手入力送信（テスト用） */
+$("sendManual").addEventListener("click", async () => {
+  const v = $("manual").value.trim();
+  if (!v) return;
+  await stamp(v);
+});
+
+/** ===== 引換（店員用） ===== */
+$("redeemBtn").addEventListener("click", async () => {
+  if (!TOKEN) { $("redeemMsg").textContent = "ログインしてください"; return; }
+  const pin = $("pin").value.trim();
+  if (!pin) { $("redeemMsg").textContent = "PINを入力してください"; $("redeemMsg").className="err"; return; }
+  $("redeemMsg").textContent = "送信中…"; $("redeemMsg").className="";
+  try {
+    const r = await postJSON({ action: "redeem", token: TOKEN, pin });
+    if (r.ok) {
+      $("redeemMsg").innerHTML = `<span class="ok">引換OK（受付番号: ${r.ticket || "-"}）</span>`;
+      $("points").style.display = "";
+      $("points").textContent = `現在 ${r.points} pt`;
+    } else {
+      $("redeemMsg").innerHTML = `<span class="warn">${r.error || "失敗"}</span>`;
+    }
+  } catch (e) {
+    $("redeemMsg").innerHTML = `<span class="err">通信エラー: ${e}</span>`;
+  }
+});
+
+/** ===== 初期化 ===== */
+setLoginState(!!TOKEN);
+$("who").textContent = TOKEN ? `ログイン中: ${USER_EMAIL || "-"}` : "";
+loadStatus(); // 起動時に現在ポイントを表示（tokenが有効なら）
+</script>
+</body>
+</html>
