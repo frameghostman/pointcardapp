@@ -201,31 +201,32 @@
     font-size: 24px;
     color: #fff;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transition: color 0.3s; /* 色が変わる際のアニメーション */
   }
-  /* ▼▼▼【追加】ここから ▼▼▼ */
-  .stamp-slot.newly-added {
-    animation: new-stamp-pulse 0.8s ease-in-out;
-  }
-  @keyframes new-stamp-pulse {
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
-    50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+  /* ▼▼▼【修正】ここから ▼▼▼ */
+  /* 新しいスタンプは星の色を変える */
+  .stamp-slot.newly-added::before {
+    color: #28a745; /* Success Green */
   }
   .point-plus-one {
     position: absolute;
-    right: -25px;
-    top: -5px;
+    /* ポイント表示の右隣に配置 */
+    left: 100%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 8px;
     font-size: 20px;
     font-weight: bold;
     color: #28a745;
-    animation: point-plus-one-anim 0.8s ease-out forwards;
+    animation: point-plus-one-pop 0.4s ease-out forwards;
     text-shadow: 1px 1px 2px #fff;
+    white-space: nowrap;
   }
-  @keyframes point-plus-one-anim {
-    0% { transform: translateY(0) scale(1); opacity: 1; }
-    100% { transform: translateY(-25px) scale(1.2); opacity: 0; }
+  @keyframes point-plus-one-pop {
+    0% { transform: translateY(-50%) scale(0.5); opacity: 0; }
+    100% { transform: translateY(-50%) scale(1); opacity: 1; }
   }
-  /* ▲▲▲【追加】ここまで ▲▲▲ */
+  /* ▲▲▲【修正】ここまで ▲▲▲ */
 </style>
 </head>
 <body>
@@ -491,9 +492,11 @@ function showPlusOneAnimation() {
   plusOne.textContent = '+1!';
   plusOne.className = 'point-plus-one';
   container.appendChild(plusOne);
-  plusOne.addEventListener('animationend', () => {
-    plusOne.remove();
-  });
+  // ▼▼▼【修正】アニメーション終了時に要素を削除する処理を削除 ▼▼▼
+  // plusOne.addEventListener('animationend', () => {
+  //   plusOne.remove();
+  // });
+  // ▲▲▲【修正】ここまで ▲▲▲
 }
 
 // 初期化
