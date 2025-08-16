@@ -301,7 +301,7 @@ const show = (el, visible) => el.style.display = visible ? 'block' : 'none';
 /** ログイン状態に応じてUI表示切替 */
 function setLoginState(isLoggedIn) {
   show($("login-form-container"), !isLoggedIn);
-  show($("otp-form-container"), false); // ログアウト時は必ずOTPフォームを非表示
+  // show($("otp-form-container"), false); // ← この行が問題だったので削除
   show($("stamp-card-container"), isLoggedIn);
   show($("redeem-container"), isLoggedIn);
   show($("topLogout"), isLoggedIn);
@@ -421,17 +421,29 @@ $("verify").addEventListener("click", async () => {
   }
 });
 
+/** ログイン処理 */
+function doLogin(token) {
+  TOKEN = token;
+  localStorage.setItem("token", TOKEN);
+  setLoginState(true);
+  show($("otp-form-container"), false); // OTPフォームを非表示にする
+  loadStatus();
+}
+
+/** ログアウト処理 */
 function doLogout(isExpired = false, msg = "ログアウトしました") {
   TOKEN = "";
   USER_EMAIL = "";
   localStorage.removeItem("token");
   localStorage.removeItem("email");
   setLoginState(false);
+  show($("otp-form-container"), false); // ログアウト時にOTPフォームを非表示にする
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
   $("result").textContent = "";
   $("stamp-feedback").textContent = ""; // ▼▼▼【追加】フィードバックもクリア
 }
+
 $("topLogout").addEventListener("click", () => doLogout());
 
 /** ===== ポイント付与 ===== */
