@@ -214,6 +214,39 @@
     color: #28a745;
   }
   /* ▲▲▲【追加】ここまで ▲▲▲ */
+
+  /* ---- PINダイアログ ---- */
+  .dialog-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.35);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  .dialog {
+    width: min(90vw, 360px);
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+  .dialog h3 {
+    margin: 0 0 12px;
+    font-size: 18px;
+  }
+  #pinInput {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 18px;
+    letter-spacing: .3em;
+    text-align: center;
+  }
+
 </style>
 </head>
 <body>
@@ -265,16 +298,28 @@
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a8.25 8.25 0 01-16.5 0v-8.25a8.25 8.25 0 0116.5 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 003.75-3.75h-7.5a3.75 3.75 0 003.75 3.75z" /></svg>
       特典と交換（店員操作）
     </h2>
-    <input id="pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4桁のPIN" />
     <div class="row">
       <button class="btn" id="redeemBtn">10ptで特典と交換する</button>
     </div>
     <div id="redeemMsg"></div>
-  </section>
+</section>
 
   <div id="msg"></div>
   <div id="result"></div>
 </main>
+
+<!-- PIN入力ダイアログ -->
+<div id="pinDialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="pinTitle" style="display:none;">
+  <div class="dialog">
+    <h3 id="pinTitle">店員用PINを入力</h3>
+    <input id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4桁のPIN" />
+    <div class="row" style="margin-top:12px;">
+      <button class="btn" id="pinOk">OK</button>
+      <button class="btn secondary" id="pinCancel">キャンセル</button>
+    </div>
+  </div>
+</div>
+
 <footer id="user-info" style="display:none;">
   <span id="who"></span>
   <button id="topLogout" class="btn secondary">ログアウト</button>
@@ -490,13 +535,33 @@ async function sendStamp(payload) {
 }
 
 /** ===== 特典引換 ===== */
+
 $("redeemBtn").addEventListener("click", async () => {
-  const pin = $("pin").value;
-  if (!pin) { $("redeemMsg").textContent = "PINを入力してください"; $("redeemMsg").className="err"; return; }
-  $("redeemMsg").textContent = "処理中…"; $("redeemMsg").className="";
+  const pin = await showPinDialog();
+  if (pin == null) return; // cancelled
+  if (!/^\d{4}$/.test(pin)) {
+    $("redeemMsg").textContent = "4桁のPINを入力してください";
+    $("redeemMsg").className = "err";
+    return;
+  }
+  $("redeemMsg").textContent = "処理中…";
+  $("redeemMsg").className = "";
   try {
     const r = await postJSON({ action: "redeem", token: TOKEN, pin });
     if (r.ok) {
+      $("redeemMsg").textContent = `引換成功！ Ticket: ${r.ticket}`;
+      $("redeemMsg").className = "ok";
+      await loadStatus();
+    } else {
+      $("redeemMsg").textContent = r.error || "引換失敗";
+      $("redeemMsg").className = "err";
+    }
+  } catch (e) {
+    $("redeemMsg").textContent = "通信エラー: " + e;
+    $("redeemMsg").className = "err";
+  }
+});
+if (r.ok) {
       $("redeemMsg").textContent = `引換成功！ Ticket: ${r.ticket}`;
       $("redeemMsg").className = "ok";
       await loadStatus(); // ポイントとスタンプカードUIを再読み込み
@@ -511,6 +576,43 @@ $("redeemBtn").addEventListener("click", async () => {
 });
 
 // ▼▼▼【削除】showPlusOneAnimation関数を削除 ▼▼▼
+
+
+/** PIN入力モーダル（Promiseで結果を返す） */
+function showPinDialog() {
+  return new Promise((resolve) => {
+    const overlay = $("pinDialog");
+    const input = $("pinInput");
+    const ok = $("pinOk");
+    const cancel = $("pinCancel");
+
+    function cleanup(val) {
+      overlay.style.display = "none";
+      ok.removeEventListener("click", onOK);
+      cancel.removeEventListener("click", onCancel);
+      document.removeEventListener("keydown", onKey);
+      resolve(val);
+    }
+    function onOK() {
+      cleanup(input.value.trim());
+    }
+    function onCancel() {
+      cleanup(null);
+    }
+    function onKey(e) {
+      if (e.key === "Enter") onOK();
+      if (e.key === "Escape") onCancel();
+    }
+
+    overlay.style.display = "flex";
+    setTimeout(() => { input.focus(); }, 0);
+    input.value = "";
+
+    ok.addEventListener("click", onOK);
+    cancel.addEventListener("click", onCancel);
+    document.addEventListener("keydown", onKey, { once: false });
+  });
+}
 
 // 初期化
 (async () => {
