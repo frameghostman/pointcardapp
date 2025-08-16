@@ -284,6 +284,9 @@
 /** あなたのGASウェブアプリURL（/exec） */
 const API = "https://script.google.com/macros/s/AKfycbxOR48ttoDzNqza-LOukLSh1YgSRH6lyJQtiJ0Ft3lApK-pEbeZF0h8FqQff2Lohs-Wgg/exec";
 
+let TOKEN = localStorage.getItem("token") || "";
+let USER_EMAIL = localStorage.getItem("email") || "";
+
 /** CORS簡略化のため Content-Type: text/plain（プリフライト回避） */
 async function postJSON(payload) {
   const res = await fetch(API, {
@@ -296,22 +299,30 @@ async function postJSON(payload) {
 
 /** ユーティリティ */
 const $ = (id) => document.getElementById(id);
-const show = (el, visible) => el.style.display = visible ? 'block' : 'none';
+const show = (el, visible) => {
+  if (el) { // 要素が存在する場合のみ処理
+    el.style.display = visible ? 'block' : 'none';
+  }
+};
 
 /** ログイン状態に応じてUI表示切替 */
 function setLoginState(isLoggedIn) {
-  show($("login-form-container"), !isLoggedIn);
-  show($("otp-form-container"), false); // ログイン・ログアウトに関わらず、この関数が呼ばれたらOTPは一旦隠すのが安全
-  show($("points-display"), isLoggedIn); // ポイント表示エリアもここで制御
+  show($("auth"), !isLoggedIn);
   show($("stamp-card-container"), isLoggedIn);
-  show($("redeem-container"), isLoggedIn);
-  show($("topLogout"), isLoggedIn);
-  show($("who"), isLoggedIn);
+  show($("redeem"), isLoggedIn);
+  show($("user-info"), isLoggedIn);
+  show($("points-display"), isLoggedIn);
+
+  // ログイン状態に関わらずOTPフォームは一旦隠す
+  show($("otpArea"), false);
+
   if (!isLoggedIn) {
-    show($("points-display"), false);
     $("points").textContent = "";
     $("authMsg").textContent = "";
     $("authMsg").className = "";
+    if ($("who")) $("who").textContent = "";
+  } else if (USER_EMAIL) {
+    if ($("who")) $("who").textContent = `ログイン中: ${USER_EMAIL}`;
   }
 }
 
@@ -354,9 +365,11 @@ async function loadStatus(isNewStamp = false) { // isNewStampフラグは残す
       }
       // ▲▲▲【修正】ここまで ▲▲▲
 
-      if (r.email && !USER_EMAIL) {
+      if (r.email && r.email !== USER_EMAIL) {
         USER_EMAIL = r.email;
         localStorage.setItem("email", USER_EMAIL);
+      }
+      if (USER_EMAIL) {
         $("who").textContent = `ログイン中: ${USER_EMAIL}`;
       }
     } else {
@@ -394,14 +407,12 @@ $("verify").addEventListener("click", async () => {
   try {
     const r = await postJSON({ action: "auth_verify", email, code });
     if (r.ok && r.token) {
-      TOKEN = r.token;
       USER_EMAIL = email;
-      localStorage.setItem("token", TOKEN);
       localStorage.setItem("email", USER_EMAIL);
       $("authMsg").textContent = "ログイン成功";
       $("authMsg").className = "ok";
-      setLoginState(true);
-      await loadStatus();
+      
+      await doLogin(r.token);
 
       // ログイン成功後にもURLをチェックし、保留中のスタンプ処理を実行
       const urlParamsAfterLogin = new URLSearchParams(window.location.search);
@@ -423,11 +434,11 @@ $("verify").addEventListener("click", async () => {
 });
 
 /** ログイン処理 */
-function doLogin(token) {
+async function doLogin(token) {
   TOKEN = token;
   localStorage.setItem("token", TOKEN);
-  setLoginState(true); // これでログイン後UIが全て表示される
-  loadStatus();      // 表示されたUIにステータスを書き込む
+  setLoginState(true);
+  await loadStatus();
 }
 
 /** ログアウト処理 */
@@ -490,7 +501,9 @@ $("redeemBtn").addEventListener("click", async () => {
 (async () => {
   // ログイン状態を先に確定させる
   setLoginState(!!TOKEN);
-  await loadStatus();
+  if (TOKEN) {
+    await loadStatus();
+  }
 
   // URLパラメータをチェック
   const urlParams = new URLSearchParams(window.location.search);
