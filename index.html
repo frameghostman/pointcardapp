@@ -296,22 +296,17 @@ async function postJSON(payload) {
 
 /** ユーティリティ */
 const $ = (id) => document.getElementById(id);
-const show = (el, on) => (el.style.display = on ? "" : "none");
+const show = (el, visible) => el.style.display = visible ? 'block' : 'none';
 
-/** 状態 */
-let TOKEN = localStorage.getItem("token") || "";
-let USER_EMAIL = localStorage.getItem("email") || "";
-
-/** 画面出し分け */
-function setLoginState(loggedIn) {
-  show($("auth"),   !loggedIn);
-  show($("redeem"),  loggedIn);
-  show($("user-info"), loggedIn);
-  show($("stamp-card-container"), loggedIn);
-
-  $("who").textContent = loggedIn ? `ログイン中: ${USER_EMAIL || "-"}` : "";
-
-  if (!loggedIn) {
+/** ログイン状態に応じてUI表示切替 */
+function setLoginState(isLoggedIn) {
+  show($("login-form-container"), !isLoggedIn);
+  show($("otp-form-container"), false); // ログアウト時は必ずOTPフォームを非表示
+  show($("stamp-card-container"), isLoggedIn);
+  show($("redeem-container"), isLoggedIn);
+  show($("topLogout"), isLoggedIn);
+  show($("who"), isLoggedIn);
+  if (!isLoggedIn) {
     show($("points-display"), false);
     $("points").textContent = "";
     $("authMsg").textContent = "";
