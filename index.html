@@ -376,16 +376,16 @@ $("verify").addEventListener("click", async () => {
       setLoginState(true);
       await loadStatus();
 
-      // ▼▼▼【修正】localStorageから保留中のスタンプ処理を実行 ▼▼▼
-      const pendingStamp = JSON.parse(localStorage.getItem('pending_stamp') || 'null');
-      // 10分以内に保存されたペイロードなら処理を実行
-      if (pendingStamp && pendingStamp.payload && Date.now() - pendingStamp.timestamp < 600000) {
+      // ログイン成功後にもURLをチェックし、保留中のスタンプ処理を実行
+      const urlParamsAfterLogin = new URLSearchParams(window.location.search);
+      const payloadAfterLogin = urlParamsAfterLogin.get('q');
+      if (payloadAfterLogin) {
         $("result").textContent = "ログインしました。ポイントを付与しています…";
         $("result").className = "";
-        await sendStamp(pendingStamp.payload);
+        await sendStamp(payloadAfterLogin);
+        // 処理が完了したので、URLからパラメータを削除
+        history.replaceState(null, '', window.location.pathname);
       }
-      localStorage.removeItem('pending_stamp'); // 成功・失敗に関わらず削除
-      // ▲▲▲【修正】ここまで ▲▲▲
     } else {
       $("authMsg").textContent = r.error || "認証失敗";
       $("authMsg").className = "err";
@@ -448,32 +448,31 @@ $("redeemBtn").addEventListener("click", async () => {
 });
 
 // 初期化
-setLoginState(!!TOKEN);
-loadStatus();
+(async () => {
+  // ログイン状態を先に確定させる
+  setLoginState(!!TOKEN);
+  await loadStatus();
 
-// ページ読み込み時にURLパラメータをチェック
-const urlParams = new URLSearchParams(window.location.search);
-const qrPayloadFromUrl = urlParams.get('q');
-if (qrPayloadFromUrl) {
-  if (TOKEN) {
-    // ログイン済みなら即スタンプ
-    $("result").textContent = "URLからスタンプ情報を読み込みました。処理中…";
-    $("result").className = "";
-    sendStamp(qrPayloadFromUrl);
-  } else {
-    // ▼▼▼【修正】未ログインならペイロードをlocalStorageに一時保存 ▼▼▼
-    const pendingStamp = {
-      payload: qrPayloadFromUrl,
-      timestamp: Date.now() // 保存した時刻も記録
-    };
-    localStorage.setItem('pending_stamp', JSON.stringify(pendingStamp));
-    $("authMsg").textContent = "ポイントを付けるにはログインしてください";
-    $("authMsg").className = "warn";
-    // ▲▲▲【修正】ここまで ▲▲▲
+  // URLパラメータをチェック
+  const urlParams = new URLSearchParams(window.location.search);
+  const qrPayloadFromUrl = urlParams.get('q');
+
+  if (qrPayloadFromUrl) {
+    if (TOKEN) {
+      // 【フロー1, 2に対応】ログイン済みで、URLにパラメータがある場合
+      // ポイントを付与し、その後URLをクリーンにする
+      $("result").textContent = "URLからスタンプ情報を読み込みました。処理中…";
+      $("result").className = "";
+      await sendStamp(qrPayloadFromUrl);
+      history.replaceState(null, '', window.location.pathname);
+    } else {
+      // 【フロー3の初期状態】未ログインで、URLにパラメータがある場合
+      // 何もせず、ユーザーにログインを促す（URLはそのまま）
+      $("authMsg").textContent = "ポイントを付けるにはログインしてください";
+      $("authMsg").className = "warn";
+    }
   }
-  // URLからクエリパラメータを削除してリロードでの再付与を防止
-  history.replaceState(null, '', window.location.pathname);
-}
+})();
 </script>
 </body>
 </html>
