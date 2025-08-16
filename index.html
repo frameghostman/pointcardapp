@@ -301,7 +301,8 @@ const show = (el, visible) => el.style.display = visible ? 'block' : 'none';
 /** ログイン状態に応じてUI表示切替 */
 function setLoginState(isLoggedIn) {
   show($("login-form-container"), !isLoggedIn);
-  // show($("otp-form-container"), false); // ← この行が問題だったので削除
+  show($("otp-form-container"), false); // ログイン・ログアウトに関わらず、この関数が呼ばれたらOTPは一旦隠すのが安全
+  show($("points-display"), isLoggedIn); // ポイント表示エリアもここで制御
   show($("stamp-card-container"), isLoggedIn);
   show($("redeem-container"), isLoggedIn);
   show($("topLogout"), isLoggedIn);
@@ -425,9 +426,8 @@ $("verify").addEventListener("click", async () => {
 function doLogin(token) {
   TOKEN = token;
   localStorage.setItem("token", TOKEN);
-  loadStatus();
-  setLoginState(true);
-  show($("otp-form-container"), false); // OTPフォームを非表示にする
+  setLoginState(true); // これでログイン後UIが全て表示される
+  loadStatus();      // 表示されたUIにステータスを書き込む
 }
 
 /** ログアウト処理 */
@@ -436,8 +436,7 @@ function doLogout(isExpired = false, msg = "ログアウトしました") {
   USER_EMAIL = "";
   localStorage.removeItem("token");
   localStorage.removeItem("email");
-  setLoginState(false);
-  show($("otp-form-container"), false); // ログアウト時にOTPフォームを非表示にする
+  setLoginState(false); // これでログイン前UIが表示され、OTPフォームも隠れる
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
   $("result").textContent = "";
