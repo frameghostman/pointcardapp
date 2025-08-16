@@ -324,6 +324,21 @@ function setLoginState(isLoggedIn) {
   } else if (USER_EMAIL) {
     if ($("who")) $("who").textContent = `ログイン中: ${USER_EMAIL}`;
   }
+
+  // --- iOS Safari/Chrome 対策：ログイン時にPINへ自動フォーカスされるのを防ぐ ---
+  if (isLoggedIn) {
+    requestAnimationFrame(() => {
+      if (document.activeElement && document.activeElement.id === 'pin') {
+        document.activeElement.blur();
+      }
+    });
+    // 念のためのフォールバック（旧iOS WebView等）
+    setTimeout(() => {
+      if (document.activeElement && document.activeElement.id === 'pin') {
+        document.activeElement.blur();
+      }
+    }, 0);
+  }
 }
 
 /** スタンプカードUI更新 */
@@ -412,14 +427,13 @@ $("verify").addEventListener("click", async () => {
       $("authMsg").textContent = "ログイン成功";
       $("authMsg").className = "ok";
       
-      // ログイン前にURLパラメータを取得し、ログイン後の初回読み込みをスキップするか判断
+      await doLogin(r.token);
+
+      // ログイン成功後にもURLをチェックし、保留中のスタンプ処理を実行
       const urlParamsAfterLogin = new URLSearchParams(window.location.search);
       const payloadAfterLogin = urlParamsAfterLogin.get('q');
-      // 認証成功したら、skipLoadフラグ付きでログイン処理を実行
-      await doLogin(r.token, { skipLoad: !!payloadAfterLogin });
-      // ログイン後に保留中のスタンプ処理があれば実行する
       if (payloadAfterLogin) {
-        $("result").textContent = "";
+        $("result").textContent = ""; // メッセージをクリア
         await sendStamp(payloadAfterLogin);
         // 処理が完了したので、URLからパラメータを削除
         history.replaceState(null, '', window.location.pathname);
@@ -435,14 +449,11 @@ $("verify").addEventListener("click", async () => {
 });
 
 /** ログイン処理 */
-async function doLogin(token, { skipLoad = false } = {}) {
+async function doLogin(token) {
   TOKEN = token;
   localStorage.setItem("token", TOKEN);
   setLoginState(true);
-  // skipLoadがtrueの場合はポイントの再取得を省略する
-  if (!skipLoad) {
-    await loadStatus();
-  }
+  await loadStatus();
 }
 
 /** ログアウト処理 */
@@ -462,19 +473,12 @@ $("topLogout").addEventListener("click", () => doLogout());
 
 /** ===== ポイント付与 ===== */
 async function sendStamp(payload) {
-  // スタンプ処理結果のメッセージをクリア
-  $("result").textContent = "";
+  $("result").textContent = ""; // 古いメッセージをクリア
   try {
     const r = await postJSON({ action: "stamp", token: TOKEN, qr_payload: payload });
     if (r.ok) {
-      // スタンプ付与に成功した場合は即座にUIを更新する
-      // ポイント表示を有効にして最新のポイントを表示
-      show($("points-display"), true);
-      $("points").textContent = `現在 ${r.points} pt`;
-      // スタンプカードを更新し、最後に付与したスタンプを強調表示
-      updateStampCard(r.points, true);
-      // フィードバックメッセージを表示
-      $("stamp-feedback").textContent = "スタンプを1つ付与しました";
+      // アニメーション付きでUIを更新
+      await loadStatus(true);
     } else {
       $("result").textContent = r.error || "スタンプ処理に失敗";
       $("result").className = "err";
