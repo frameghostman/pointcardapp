@@ -266,16 +266,15 @@
       特典と交換（店員操作）
     </h2>
     <div class="row">
-      <!-- モーダルを開くボタン -->
       <button class="btn" id="redeemBtn">10ptで特典と交換する</button>
     </div>
     <div id="redeemMsg"></div>
   </section>
 
-  <!-- PIN入力モーダル -->
+  <!-- PIN入力モーダル（交換時に表示） -->
   <div id="pinModal" style="display:none;">
     <div id="pinOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;"></div>
-    <div id="pinDialog" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--border-color);border-radius:var(--border-radius);padding:20px;z-index:10000;width:min(90%,320px);box-shadow:var(--shadow);">
+    <div id="pinDialog" style="position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);background:#fff;border:1px solid var(--border-color);border-radius:var(--border-radius);padding:20px;z-index:10000;width:min(90%,320px);box-shadow:var(--shadow);">
       <h3 style="margin-top:0;font-size:18px;margin-bottom:12px;">4桁PINを入力</h3>
       <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:18px;margin-bottom:16px;" autocomplete="one-time-code" />
       <div style="display:flex;gap:8px;">
@@ -475,8 +474,12 @@ async function sendStamp(payload) {
   try {
     const r = await postJSON({ action: "stamp", token: TOKEN, qr_payload: payload });
     if (r.ok) {
-      // アニメーション付きでUIを更新
-      await loadStatus(true);
+      // サーバから返ったポイント数でUIを直接更新し、再度/meを呼ばない
+      const pts = r.points;
+      show($("points-display"), true);
+      $("points").textContent = `現在 ${pts} pt`;
+      updateStampCard(pts, true);
+      $("stamp-feedback").textContent = "スタンプを1つ付与しました";
     } else {
       $("result").textContent = r.error || "スタンプ処理に失敗";
       $("result").className = "err";
@@ -489,10 +492,9 @@ async function sendStamp(payload) {
 
 /** ===== 特典引換 ===== */
 $("redeemBtn").addEventListener("click", async () => {
-  // PIN入力ダイアログを表示して取得
+  // ダイアログでPINを取得
   const pin = await showPinDialog();
   if (!pin) {
-    // キャンセルまたは入力なしの場合は何もしない
     return;
   }
   $("redeemMsg").textContent = "処理中…";
@@ -514,28 +516,24 @@ $("redeemBtn").addEventListener("click", async () => {
 });
 
 /**
- * 4桁PINを入力するダイアログを表示する。
- * 戻り値は入力されたPIN（文字列）またはキャンセル時はnull。
+ * 4桁PIN入力用のモーダルを表示し、PIN文字列またはnullを返す
  */
 function showPinDialog() {
   return new Promise((resolve) => {
     const modal    = $("pinModal");
-    const overlay  = $("pinOverlay");
-    const dialog   = $("pinDialog");
     const input    = $("pinInput");
     const btnOk    = $("pinOk");
     const btnCancel= $("pinCancel");
-
-    // 既存の値をクリア
-    if (input) input.value = "";
-
-    // イベントハンドラを一度だけ定義
+    // 初期化
+    input.value = "";
+    // 表示
+    modal.style.display = "block";
+    // ハンドラ
     function close(result) {
-      // 後片付け: モーダルを閉じ、リスナーを除去
-      if (modal) modal.style.display = "none";
+      modal.style.display = "none";
       btnOk.removeEventListener("click", onOk);
       btnCancel.removeEventListener("click", onCancel);
-      input.removeEventListener("keypress", onKeyPress);
+      input.removeEventListener("keypress", onKey);
       resolve(result);
     }
     function onOk() {
@@ -543,30 +541,21 @@ function showPinDialog() {
       if (val.length === 4 && /^[0-9]+$/.test(val)) {
         close(val);
       } else {
-        // 不正な場合は何もしない（入力欄にフォーカスを戻す）
         input.focus();
       }
     }
     function onCancel() {
       close(null);
     }
-    function onKeyPress(ev) {
-      if (ev.key === "Enter") {
-        onOk();
-      } else if (ev.key === "Escape") {
-        onCancel();
-      }
+    function onKey(ev) {
+      if (ev.key === 'Enter') onOk();
+      if (ev.key === 'Escape') onCancel();
     }
     btnOk.addEventListener("click", onOk);
     btnCancel.addEventListener("click", onCancel);
-    input.addEventListener("keypress", onKeyPress);
-
-    // モーダルを表示
-    if (modal) modal.style.display = "block";
-    // 入力欄にフォーカス
-    setTimeout(() => {
-      input.focus();
-    }, 0);
+    input.addEventListener("keypress", onKey);
+    // フォーカス
+    setTimeout(() => input.focus(), 0);
   });
 }
 
