@@ -425,9 +425,9 @@ $("verify").addEventListener("click", async () => {
 function doLogin(token) {
   TOKEN = token;
   localStorage.setItem("token", TOKEN);
+  loadStatus();
   setLoginState(true);
   show($("otp-form-container"), false); // OTPフォームを非表示にする
-  loadStatus();
 }
 
 /** ログアウト処理 */
