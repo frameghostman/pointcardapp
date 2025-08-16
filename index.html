@@ -214,39 +214,6 @@
     color: #28a745;
   }
   /* ▲▲▲【追加】ここまで ▲▲▲ */
-
-  /* ---- PINダイアログ ---- */
-  .dialog-overlay {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,.35);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
-  .dialog {
-    width: min(90vw, 360px);
-    background: #fff;
-    border: 1px solid var(--border-color);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
-    padding: 16px;
-  }
-  .dialog h3 {
-    margin: 0 0 12px;
-    font-size: 18px;
-  }
-  #pinInput {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 18px;
-    letter-spacing: .3em;
-    text-align: center;
-  }
-
 </style>
 </head>
 <body>
@@ -299,27 +266,28 @@
       特典と交換（店員操作）
     </h2>
     <div class="row">
+      <!-- モーダルを開くボタン -->
       <button class="btn" id="redeemBtn">10ptで特典と交換する</button>
     </div>
     <div id="redeemMsg"></div>
-</section>
+  </section>
+
+  <!-- PIN入力モーダル -->
+  <div id="pinModal" style="display:none;">
+    <div id="pinOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;"></div>
+    <div id="pinDialog" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--border-color);border-radius:var(--border-radius);padding:20px;z-index:10000;width:min(90%,320px);box-shadow:var(--shadow);">
+      <h3 style="margin-top:0;font-size:18px;margin-bottom:12px;">4桁PINを入力</h3>
+      <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:18px;margin-bottom:16px;" autocomplete="one-time-code" />
+      <div style="display:flex;gap:8px;">
+        <button id="pinCancel" class="btn secondary" style="flex:1;">キャンセル</button>
+        <button id="pinOk" class="btn" style="flex:1;">OK</button>
+      </div>
+    </div>
+  </div>
 
   <div id="msg"></div>
   <div id="result"></div>
 </main>
-
-<!-- PIN入力ダイアログ -->
-<div id="pinDialog" class="dialog-overlay" role="dialog" aria-modal="true" aria-labelledby="pinTitle" style="display:none;">
-  <div class="dialog">
-    <h3 id="pinTitle">店員用PINを入力</h3>
-    <input id="pinInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="4桁のPIN" />
-    <div class="row" style="margin-top:12px;">
-      <button class="btn" id="pinOk">OK</button>
-      <button class="btn secondary" id="pinCancel">キャンセル</button>
-    </div>
-  </div>
-</div>
-
 <footer id="user-info" style="display:none;">
   <span id="who"></span>
   <button id="topLogout" class="btn secondary">ログアウト</button>
@@ -368,21 +336,6 @@ function setLoginState(isLoggedIn) {
     if ($("who")) $("who").textContent = "";
   } else if (USER_EMAIL) {
     if ($("who")) $("who").textContent = `ログイン中: ${USER_EMAIL}`;
-  }
-
-  // --- iOS Safari/Chrome 対策：ログイン時にPINへ自動フォーカスされるのを防ぐ ---
-  if (isLoggedIn) {
-    requestAnimationFrame(() => {
-      if (document.activeElement && document.activeElement.id === 'pin') {
-        document.activeElement.blur();
-      }
-    });
-    // 念のためのフォールバック（旧iOS WebView等）
-    setTimeout(() => {
-      if (document.activeElement && document.activeElement.id === 'pin') {
-        document.activeElement.blur();
-      }
-    }, 0);
   }
 }
 
@@ -535,13 +488,11 @@ async function sendStamp(payload) {
 }
 
 /** ===== 特典引換 ===== */
-
 $("redeemBtn").addEventListener("click", async () => {
+  // PIN入力ダイアログを表示して取得
   const pin = await showPinDialog();
-  if (pin == null) return; // cancelled
-  if (!/^\d{4}$/.test(pin)) {
-    $("redeemMsg").textContent = "4桁のPINを入力してください";
-    $("redeemMsg").className = "err";
+  if (!pin) {
+    // キャンセルまたは入力なしの場合は何もしない
     return;
   }
   $("redeemMsg").textContent = "処理中…";
@@ -549,19 +500,6 @@ $("redeemBtn").addEventListener("click", async () => {
   try {
     const r = await postJSON({ action: "redeem", token: TOKEN, pin });
     if (r.ok) {
-      $("redeemMsg").textContent = `引換成功！ Ticket: ${r.ticket}`;
-      $("redeemMsg").className = "ok";
-      await loadStatus();
-    } else {
-      $("redeemMsg").textContent = r.error || "引換失敗";
-      $("redeemMsg").className = "err";
-    }
-  } catch (e) {
-    $("redeemMsg").textContent = "通信エラー: " + e;
-    $("redeemMsg").className = "err";
-  }
-});
-if (r.ok) {
       $("redeemMsg").textContent = `引換成功！ Ticket: ${r.ticket}`;
       $("redeemMsg").className = "ok";
       await loadStatus(); // ポイントとスタンプカードUIを再読み込み
@@ -575,44 +513,64 @@ if (r.ok) {
   }
 });
 
-// ▼▼▼【削除】showPlusOneAnimation関数を削除 ▼▼▼
-
-
-/** PIN入力モーダル（Promiseで結果を返す） */
+/**
+ * 4桁PINを入力するダイアログを表示する。
+ * 戻り値は入力されたPIN（文字列）またはキャンセル時はnull。
+ */
 function showPinDialog() {
   return new Promise((resolve) => {
-    const overlay = $("pinDialog");
-    const input = $("pinInput");
-    const ok = $("pinOk");
-    const cancel = $("pinCancel");
+    const modal    = $("pinModal");
+    const overlay  = $("pinOverlay");
+    const dialog   = $("pinDialog");
+    const input    = $("pinInput");
+    const btnOk    = $("pinOk");
+    const btnCancel= $("pinCancel");
 
-    function cleanup(val) {
-      overlay.style.display = "none";
-      ok.removeEventListener("click", onOK);
-      cancel.removeEventListener("click", onCancel);
-      document.removeEventListener("keydown", onKey);
-      resolve(val);
+    // 既存の値をクリア
+    if (input) input.value = "";
+
+    // イベントハンドラを一度だけ定義
+    function close(result) {
+      // 後片付け: モーダルを閉じ、リスナーを除去
+      if (modal) modal.style.display = "none";
+      btnOk.removeEventListener("click", onOk);
+      btnCancel.removeEventListener("click", onCancel);
+      input.removeEventListener("keypress", onKeyPress);
+      resolve(result);
     }
-    function onOK() {
-      cleanup(input.value.trim());
+    function onOk() {
+      const val = input.value.trim();
+      if (val.length === 4 && /^[0-9]+$/.test(val)) {
+        close(val);
+      } else {
+        // 不正な場合は何もしない（入力欄にフォーカスを戻す）
+        input.focus();
+      }
     }
     function onCancel() {
-      cleanup(null);
+      close(null);
     }
-    function onKey(e) {
-      if (e.key === "Enter") onOK();
-      if (e.key === "Escape") onCancel();
+    function onKeyPress(ev) {
+      if (ev.key === "Enter") {
+        onOk();
+      } else if (ev.key === "Escape") {
+        onCancel();
+      }
     }
+    btnOk.addEventListener("click", onOk);
+    btnCancel.addEventListener("click", onCancel);
+    input.addEventListener("keypress", onKeyPress);
 
-    overlay.style.display = "flex";
-    setTimeout(() => { input.focus(); }, 0);
-    input.value = "";
-
-    ok.addEventListener("click", onOK);
-    cancel.addEventListener("click", onCancel);
-    document.addEventListener("keydown", onKey, { once: false });
+    // モーダルを表示
+    if (modal) modal.style.display = "block";
+    // 入力欄にフォーカス
+    setTimeout(() => {
+      input.focus();
+    }, 0);
   });
 }
+
+// ▼▼▼【削除】showPlusOneAnimation関数を削除 ▼▼▼
 
 // 初期化
 (async () => {
