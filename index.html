@@ -562,26 +562,25 @@ function showPinDialog() {
 // ▼▼▼【削除】showPlusOneAnimation関数を削除 ▼▼▼
 
 // 初期化
+// 初期化
 (async () => {
   // ログイン状態を先に確定させる
   setLoginState(!!TOKEN);
-  if (TOKEN) {
-    await loadStatus();
-  }
-
-  // URLパラメータをチェック
+  // URLパラメータを取得
   const urlParams = new URLSearchParams(window.location.search);
   const qrPayloadFromUrl = urlParams.get('q');
-
-  if (qrPayloadFromUrl) {
+  // q パラメータとログイン済みの両方が揃っている場合は、まずスタンプ処理を実行する
+  if (qrPayloadFromUrl && TOKEN) {
+    // ポイントを付与し、URL をクリーンにする
+    await sendStamp(qrPayloadFromUrl);
+    history.replaceState(null, '', window.location.pathname);
+  } else {
+    // q パラメータがない場合、または未ログインの場合は通常通り状態を読み込む
     if (TOKEN) {
-      // 【フロー1, 2に対応】ログイン済みで、URLにパラメータがある場合
-      // ポイントを付与し、その後URLをクリーンにする
-      await sendStamp(qrPayloadFromUrl);
-      history.replaceState(null, '', window.location.pathname);
-    } else {
-      // 【フロー3の初期状態】未ログインで、URLにパラメータがある場合
-      // 何もせず、ユーザーにログインを促す（URLはそのまま）
+      await loadStatus();
+    }
+    // 未ログインかつ q パラメータがある場合は、ログインを促す
+    if (qrPayloadFromUrl && !TOKEN) {
       $("authMsg").textContent = "ポイントを付けるにはログインしてください";
       $("authMsg").className = "warn";
     }
