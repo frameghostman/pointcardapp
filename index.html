@@ -202,13 +202,37 @@
     color: #fff;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
   }
+  /* ▼▼▼【追加】ここから ▼▼▼ */
+  .stamp-slot.newly-added {
+    animation: new-stamp-pulse 0.8s ease-in-out;
+  }
+  @keyframes new-stamp-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7); }
+    50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+  }
+  .point-plus-one {
+    position: absolute;
+    right: -25px;
+    top: -5px;
+    font-size: 20px;
+    font-weight: bold;
+    color: #28a745;
+    animation: point-plus-one-anim 0.8s ease-out forwards;
+    text-shadow: 1px 1px 2px #fff;
+  }
+  @keyframes point-plus-one-anim {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-25px) scale(1.2); opacity: 0; }
+  }
+  /* ▲▲▲【追加】ここまで ▲▲▲ */
 </style>
 </head>
 <body>
 <main>
   <div class="header">
     <h1>スタンプカード</h1>
-    <div id="points-display" style="display:none; margin-bottom: 12px;">
+    <div id="points-display" style="display:none; margin-bottom: 12px; position: relative;">
       <span id="points" class="pill"></span>
     </div>
   </div>
@@ -303,7 +327,7 @@ function setLoginState(loggedIn) {
 }
 
 /** スタンプカードUI更新 */
-function updateStampCard(points) {
+function updateStampCard(points, isNew = false) { // isNewフラグを追加
   const grid = $('stamp-grid');
   grid.innerHTML = ''; // 既存のスタンプをクリア
   const displayStamps = Math.min(points, 30); // 表示するスタンプは30個まで
@@ -312,20 +336,29 @@ function updateStampCard(points) {
     slot.className = 'stamp-slot';
     if (i < displayStamps) {
       slot.classList.add('filled');
+      // isNewがtrueで、かつ最後のスタンプの場合にアニメーションクラスを付与
+      if (isNew && i === points - 1) {
+        slot.classList.add('newly-added');
+      }
     }
     grid.appendChild(slot);
   }
 }
 
 /** 現在ポイントの読み込みとUI更新 */
-async function loadStatus() {
+async function loadStatus(isNewStamp = false) { // isNewStampフラグを追加
   if (!TOKEN) return;
   try {
     const r = await postJSON({ action: "me", token: TOKEN });
     if (r.ok) {
       show($("points-display"), true);
       $("points").textContent = `現在 ${r.points} pt`;
-      updateStampCard(r.points); // スタンプカードUIを更新
+      updateStampCard(r.points, isNewStamp); // isNewStampフラグを渡す
+
+      // 新規スタンプの場合のみアニメーションを実行
+      if (isNewStamp) {
+        showPlusOneAnimation();
+      }
 
       if (r.email && !USER_EMAIL) {
         USER_EMAIL = r.email;
@@ -380,8 +413,7 @@ $("verify").addEventListener("click", async () => {
       const urlParamsAfterLogin = new URLSearchParams(window.location.search);
       const payloadAfterLogin = urlParamsAfterLogin.get('q');
       if (payloadAfterLogin) {
-        $("result").textContent = "ログインしました。ポイントを付与しています…";
-        $("result").className = "";
+        $("result").textContent = ""; // メッセージをクリア
         await sendStamp(payloadAfterLogin);
         // 処理が完了したので、URLからパラメータを削除
         history.replaceState(null, '', window.location.pathname);
@@ -405,17 +437,18 @@ function doLogout(isExpired = false, msg = "ログアウトしました") {
   setLoginState(false);
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
+  $("result").textContent = ""; // ▼▼▼【追加】resultメッセージもクリア
 }
 $("topLogout").addEventListener("click", () => doLogout());
 
 /** ===== ポイント付与 ===== */
 async function sendStamp(payload) {
+  $("result").textContent = ""; // 古いメッセージをクリア
   try {
     const r = await postJSON({ action: "stamp", token: TOKEN, qr_payload: payload });
     if (r.ok) {
-      $("result").textContent = `スタンプを押しました！ → 現在 ${r.points} pt`;
-      $("result").className = "ok";
-      await loadStatus(); // ポイントとスタンプカードUIを再読み込み
+      // アニメーション付きでUIを更新
+      await loadStatus(true);
     } else {
       $("result").textContent = r.error || "スタンプ処理に失敗";
       $("result").className = "err";
@@ -447,6 +480,22 @@ $("redeemBtn").addEventListener("click", async () => {
   }
 });
 
+/** +1アニメーション表示 */
+function showPlusOneAnimation() {
+  const container = $('points-display');
+  // 既存のアニメーションがあれば削除
+  const existingAnim = container.querySelector('.point-plus-one');
+  if (existingAnim) existingAnim.remove();
+
+  const plusOne = document.createElement('span');
+  plusOne.textContent = '+1!';
+  plusOne.className = 'point-plus-one';
+  container.appendChild(plusOne);
+  plusOne.addEventListener('animationend', () => {
+    plusOne.remove();
+  });
+}
+
 // 初期化
 (async () => {
   // ログイン状態を先に確定させる
@@ -461,8 +510,6 @@ $("redeemBtn").addEventListener("click", async () => {
     if (TOKEN) {
       // 【フロー1, 2に対応】ログイン済みで、URLにパラメータがある場合
       // ポイントを付与し、その後URLをクリーンにする
-      $("result").textContent = "URLからスタンプ情報を読み込みました。処理中…";
-      $("result").className = "";
       await sendStamp(qrPayloadFromUrl);
       history.replaceState(null, '', window.location.pathname);
     } else {
