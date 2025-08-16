@@ -201,15 +201,19 @@
     font-size: 24px;
     color: #fff;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    transition: color 0.3s;
   }
-  /* ▼▼▼【修正】ここから ▼▼▼ */
+  /* ▼▼▼【追加】ここから ▼▼▼ */
+  .stamp-slot.newly-added::before {
+    color: #28a745; /* Success Green */
+  }
   #stamp-feedback {
     margin-left: auto; /* 右寄せにする */
     font-size: 14px;
     font-weight: normal;
     color: #28a745;
   }
-  /* ▲▲▲【修正】ここまで ▲▲▲ */
+  /* ▲▲▲【追加】ここまで ▲▲▲ */
 </style>
 </head>
 <body>
@@ -316,7 +320,7 @@ function setLoginState(loggedIn) {
 }
 
 /** スタンプカードUI更新 */
-function updateStampCard(points) { // isNewフラグを削除
+function updateStampCard(points, isNew = false) { // isNewフラグを追加
   const grid = $('stamp-grid');
   grid.innerHTML = ''; // 既存のスタンプをクリア
   const displayStamps = Math.min(points, 30); // 表示するスタンプは30個まで
@@ -325,6 +329,10 @@ function updateStampCard(points) { // isNewフラグを削除
     slot.className = 'stamp-slot';
     if (i < displayStamps) {
       slot.classList.add('filled');
+      // isNewがtrueで、かつ最後のスタンプの場合にアニメーションクラスを付与
+      if (isNew && i === points - 1) {
+        slot.classList.add('newly-added');
+      }
     }
     grid.appendChild(slot);
   }
@@ -338,7 +346,7 @@ async function loadStatus(isNewStamp = false) { // isNewStampフラグは残す
     if (r.ok) {
       show($("points-display"), true);
       $("points").textContent = `現在 ${r.points} pt`;
-      updateStampCard(r.points); // isNewStampフラグはもう渡さない
+      updateStampCard(r.points, isNewStamp); // isNewStampフラグを渡す
 
       // ▼▼▼【修正】ここから ▼▼▼
       // 新規スタンプの場合のみフィードバックメッセージを表示
@@ -469,6 +477,8 @@ $("redeemBtn").addEventListener("click", async () => {
     $("redeemMsg").className = "err";
   }
 });
+
+// ▼▼▼【削除】showPlusOneAnimation関数を削除 ▼▼▼
 
 // 初期化
 (async () => {
