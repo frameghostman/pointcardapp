@@ -201,30 +201,13 @@
     font-size: 24px;
     color: #fff;
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-    transition: color 0.3s; /* 色が変わる際のアニメーション */
   }
   /* ▼▼▼【修正】ここから ▼▼▼ */
-  /* 新しいスタンプは星の色を変える */
-  .stamp-slot.newly-added::before {
-    color: #28a745; /* Success Green */
-  }
-  .point-plus-one {
-    position: absolute;
-    /* ポイント表示の右隣に配置 */
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 8px;
-    font-size: 20px;
-    font-weight: bold;
+  #stamp-feedback {
+    margin-left: auto; /* 右寄せにする */
+    font-size: 14px;
+    font-weight: normal;
     color: #28a745;
-    animation: point-plus-one-pop 0.4s ease-out forwards;
-    text-shadow: 1px 1px 2px #fff;
-    white-space: nowrap;
-  }
-  @keyframes point-plus-one-pop {
-    0% { transform: translateY(-50%) scale(0.5); opacity: 0; }
-    100% { transform: translateY(-50%) scale(1); opacity: 1; }
   }
   /* ▲▲▲【修正】ここまで ▲▲▲ */
 </style>
@@ -263,7 +246,12 @@
 
   <!-- スタンプカードUI（ログイン済みのみ表示） -->
   <section id="stamp-card-container" style="display:none;">
-    <h2>現在のスタンプ</h2>
+    <!-- ▼▼▼【修正】h2要素内を変更 ▼▼▼ -->
+    <h2>
+      <span>現在のスタンプ</span>
+      <span id="stamp-feedback"></span>
+    </h2>
+    <!-- ▲▲▲【修正】ここまで ▲▲▲ -->
     <div id="stamp-grid"></div>
   </section>
 
@@ -328,7 +316,7 @@ function setLoginState(loggedIn) {
 }
 
 /** スタンプカードUI更新 */
-function updateStampCard(points, isNew = false) { // isNewフラグを追加
+function updateStampCard(points) { // isNewフラグを削除
   const grid = $('stamp-grid');
   grid.innerHTML = ''; // 既存のスタンプをクリア
   const displayStamps = Math.min(points, 30); // 表示するスタンプは30個まで
@@ -337,29 +325,30 @@ function updateStampCard(points, isNew = false) { // isNewフラグを追加
     slot.className = 'stamp-slot';
     if (i < displayStamps) {
       slot.classList.add('filled');
-      // isNewがtrueで、かつ最後のスタンプの場合にアニメーションクラスを付与
-      if (isNew && i === points - 1) {
-        slot.classList.add('newly-added');
-      }
     }
     grid.appendChild(slot);
   }
 }
 
 /** 現在ポイントの読み込みとUI更新 */
-async function loadStatus(isNewStamp = false) { // isNewStampフラグを追加
+async function loadStatus(isNewStamp = false) { // isNewStampフラグは残す
   if (!TOKEN) return;
   try {
     const r = await postJSON({ action: "me", token: TOKEN });
     if (r.ok) {
       show($("points-display"), true);
       $("points").textContent = `現在 ${r.points} pt`;
-      updateStampCard(r.points, isNewStamp); // isNewStampフラグを渡す
+      updateStampCard(r.points); // isNewStampフラグはもう渡さない
 
-      // 新規スタンプの場合のみアニメーションを実行
+      // ▼▼▼【修正】ここから ▼▼▼
+      // 新規スタンプの場合のみフィードバックメッセージを表示
+      const feedbackEl = $('stamp-feedback');
       if (isNewStamp) {
-        showPlusOneAnimation();
+        feedbackEl.textContent = 'スタンプを1つ付与しました';
+      } else {
+        feedbackEl.textContent = ''; // それ以外はクリア
       }
+      // ▲▲▲【修正】ここまで ▲▲▲
 
       if (r.email && !USER_EMAIL) {
         USER_EMAIL = r.email;
@@ -434,11 +423,11 @@ function doLogout(isExpired = false, msg = "ログアウトしました") {
   USER_EMAIL = "";
   localStorage.removeItem("token");
   localStorage.removeItem("email");
-  localStorage.removeItem('pending_stamp'); // ログアウト時に保留ペイロードも削除
   setLoginState(false);
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
-  $("result").textContent = ""; // ▼▼▼【追加】resultメッセージもクリア
+  $("result").textContent = "";
+  $("stamp-feedback").textContent = ""; // ▼▼▼【追加】フィードバックもクリア
 }
 $("topLogout").addEventListener("click", () => doLogout());
 
@@ -480,24 +469,6 @@ $("redeemBtn").addEventListener("click", async () => {
     $("redeemMsg").className = "err";
   }
 });
-
-/** +1アニメーション表示 */
-function showPlusOneAnimation() {
-  const container = $('points-display');
-  // 既存のアニメーションがあれば削除
-  const existingAnim = container.querySelector('.point-plus-one');
-  if (existingAnim) existingAnim.remove();
-
-  const plusOne = document.createElement('span');
-  plusOne.textContent = '+1!';
-  plusOne.className = 'point-plus-one';
-  container.appendChild(plusOne);
-  // ▼▼▼【修正】アニメーション終了時に要素を削除する処理を削除 ▼▼▼
-  // plusOne.addEventListener('animationend', () => {
-  //   plusOne.remove();
-  // });
-  // ▲▲▲【修正】ここまで ▲▲▲
-}
 
 // 初期化
 (async () => {
