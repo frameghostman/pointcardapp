@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>スタンプカード</title>
 <style>
+  /* --- 基本レイアウトと変数定義 --- */
   :root {
-    --w: 420px;
+    --w: 420px; /* 全体の横幅 */
     --primary-color: #007bff;
     --primary-color-dark: #0056b3;
     --light-gray: #f8f9fa;
@@ -34,6 +35,7 @@
     flex-grow: 1;
     margin: 0 auto;
   }
+  /* --- コンポーネントのスタイル --- */
   .header {
     text-align: center;
     margin-bottom: 16px;
@@ -123,6 +125,7 @@
     margin-top: 10px;
     flex-wrap: wrap;
   }
+  /* --- メッセージ表示用のスタイル --- */
   #msg, #authMsg, #redeemMsg, #result {
     margin-top: 10px;
     min-height: 1.2em;
@@ -132,6 +135,7 @@
   .ok   { color: #28a745; font-weight: 600; }
   .warn { color: #ffc107; font-weight: 600; }
   .err  { color: #dc3545; font-weight: 600; }
+  /* --- ポイント表示用のスタイル --- */
   .pill {
     display: inline-block;
     padding: 6px 16px;
@@ -149,6 +153,7 @@
     color: var(--gray);
     text-align: center;
   }
+  /* --- フッターのスタイル --- */
   footer {
     text-align: center;
     padding: 16px;
@@ -169,7 +174,7 @@
     padding: 6px 12px;
     width: auto;
   }
-  /* スタンプカードUIのスタイル */
+  /* --- スタンプカードUIのスタイル --- */
   #stamp-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -181,19 +186,19 @@
   }
   .stamp-slot {
     width: 100%;
-    padding-bottom: 100%; /* 正方形を維持 */
+    padding-bottom: 100%; /* アスペクト比を1:1（正方形）に保つ */
     position: relative;
     background-color: var(--light-gray);
     border-radius: 50%;
     border: 2px solid var(--border-color);
   }
   .stamp-slot.filled {
-    background-color: #ffd700; /* Gold */
+    background-color: #ffd700; /* スタンプ獲得済みの色 */
     border-color: #e6c200;
     color: white;
   }
   .stamp-slot.filled::before {
-    content: '★';
+    content: '★'; /* スタンプのアイコン */
     position: absolute;
     top: 50%;
     left: 50%;
@@ -203,17 +208,17 @@
     text-shadow: 0 1px 2px rgba(0,0,0,0.2);
     transition: color 0.3s;
   }
-  /* ▼▼▼【追加】ここから ▼▼▼ */
+  /* 新しく追加されたスタンプのアニメーション用 */
   .stamp-slot.newly-added::before {
-    color: #28a745; /* Success Green */
+    color: #28a745; /* アニメーション時の色 */
   }
+  /* スタンプ付与時のフィードバックメッセージ */
   #stamp-feedback {
-    margin-left: auto; /* 右寄せにする */
+    margin-left: auto; /* 右寄せ */
     font-size: 14px;
     font-weight: normal;
     color: #28a745;
   }
-  /* ▲▲▲【追加】ここまで ▲▲▲ */
 </style>
 </head>
 <body>
@@ -225,7 +230,9 @@
     </div>
   </div>
 
-  <!-- 認証（メールOTP）: ログイン済みなら丸ごと非表示 -->
+  <!-- =================================================================
+  認証セクション（未ログイン時に表示）
+  ================================================================== -->
   <section id="auth">
     <h2>
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
@@ -248,18 +255,20 @@
     <small>※コードは10分有効です。届かない場合は迷惑メールフォルダをご確認ください。</small>
   </section>
 
-  <!-- スタンプカードUI（ログイン済みのみ表示） -->
+  <!-- =================================================================
+  スタンプカードセクション（ログイン時に表示）
+  ================================================================== -->
   <section id="stamp-card-container" style="display:none;">
-    <!-- ▼▼▼【修正】h2要素内を変更 ▼▼▼ -->
     <h2>
       <span>現在のスタンプ</span>
       <span id="stamp-feedback"></span>
     </h2>
-    <!-- ▲▲▲【修正】ここまで ▲▲▲ -->
     <div id="stamp-grid"></div>
   </section>
 
-  <!-- 引換（店員用、ログイン済みのみ表示） -->
+  <!-- =================================================================
+  特典交換セクション（ログイン時に表示）
+  ================================================================== -->
   <section id="redeem" style="display:none;">
     <h2>
       <svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 11.25v8.25a8.25 8.25 0 01-16.5 0v-8.25a8.25 8.25 0 0116.5 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 003.75-3.75h-7.5a3.75 3.75 0 003.75 3.75z" /></svg>
@@ -271,7 +280,9 @@
     <div id="redeemMsg"></div>
   </section>
 
-  <!-- PIN入力モーダル（交換時に表示） -->
+  <!-- =================================================================
+  PIN入力モーダル
+  ================================================================== -->
   <div id="pinModal" style="display:none;">
     <div id="pinOverlay" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;"></div>
     <div id="pinDialog" style="position:fixed;top:50%;left:50%;transform:translate(-50%, -50%);background:#fff;border:1px solid var(--border-color);border-radius:var(--border-radius);padding:20px;z-index:10000;width:min(90%,320px);box-shadow:var(--shadow);">
@@ -293,41 +304,74 @@
 </footer>
 
 <script>
-/** あなたのGASウェブアプリURL（/exec） */
+// --- グローバル設定 ---
+
+/** @type {string} Google Apps Script のウェブアプリURL */
 const API = "https://script.google.com/macros/s/AKfycbxOR48ttoDzNqza-LOukLSh1YgSRH6lyJQtiJ0Ft3lApK-pEbeZF0h8FqQff2Lohs-Wgg/exec";
 
+/** @type {string} 認証トークン（LocalStorageから読み込み） */
 let TOKEN = localStorage.getItem("token") || "";
+/** @type {string} ユーザーのメールアドレス（LocalStorageから読み込み） */
 let USER_EMAIL = localStorage.getItem("email") || "";
 
-/** CORS簡略化のため Content-Type: text/plain（プリフライト回避） */
+
+// --- API通信 ---
+
+/**
+ * GASエンドポイントにJSONデータをPOSTする
+ * CORSのプリフライトリクエストを避けるためContent-Typeをtext/plainにしている
+ * @param {object} payload - 送信するデータ
+ * @returns {Promise<object>} - サーバーからのJSONレスポンス
+ */
 async function postJSON(payload) {
   const res = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify(payload)
   });
-  return res.json(); // 失敗も {ok:false,error:"..."} を返す想定
+  // サーバーは常にJSON形式で {ok: boolean, ...} を返すと想定
+  return res.json();
 }
 
-/** ユーティリティ */
+
+// --- DOM操作ユーティリティ ---
+
+/**
+ * document.getElementByIdのショートカット
+ * @param {string} id - 要素のID
+ * @returns {HTMLElement}
+ */
 const $ = (id) => document.getElementById(id);
+
+/**
+ * 要素の表示・非表示を切り替える
+ * @param {HTMLElement} el - 対象の要素
+ * @param {boolean} visible - 表示する場合はtrue
+ */
 const show = (el, visible) => {
-  if (el) { // 要素が存在する場合のみ処理
+  if (el) {
     el.style.display = visible ? 'block' : 'none';
   }
 };
 
-/** ログイン状態に応じてUI表示切替 */
-function setLoginState(isLoggedIn) {
-  show($("auth"), !isLoggedIn);
-  show($("stamp-card-container"), isLoggedIn);
-  show($("redeem"), isLoggedIn);
-  show($("user-info"), isLoggedIn);
-  show($("points-display"), isLoggedIn);
 
-  // ログイン状態に関わらずOTPフォームは一旦隠す
+// --- UI制御 ---
+
+/**
+ * ログイン状態に応じて画面の表示を切り替える
+ * @param {boolean} isLoggedIn - ログインしているかどうか
+ */
+function setLoginState(isLoggedIn) {
+  show($("auth"), !isLoggedIn); // 認証フォーム
+  show($("stamp-card-container"), isLoggedIn); // スタンプカード
+  show($("redeem"), isLoggedIn); // 特典交換
+  show($("user-info"), isLoggedIn); // フッターのユーザー情報
+  show($("points-display"), isLoggedIn); // ヘッダーのポイント表示
+
+  // 状態に関わらず、OTP入力フォームは一旦非表示にする
   show($("otpArea"), false);
 
+  // ログアウト時は関連情報をクリア
   if (!isLoggedIn) {
     $("points").textContent = "";
     $("authMsg").textContent = "";
@@ -338,17 +382,21 @@ function setLoginState(isLoggedIn) {
   }
 }
 
-/** スタンプカードUI更新 */
-function updateStampCard(points, isNew = false) { // isNewフラグを追加
+/**
+ * スタンプカードの表示を更新する
+ * @param {number} points - 現在のポイント数
+ * @param {boolean} [isNew=false] - 新規スタンプが付与された直後か
+ */
+function updateStampCard(points, isNew = false) {
   const grid = $('stamp-grid');
-  grid.innerHTML = ''; // 既存のスタンプをクリア
-  const displayStamps = Math.min(points, 30); // 表示するスタンプは30個まで
+  grid.innerHTML = ''; // 既存の表示をクリア
+  const displayStamps = Math.min(points, 30); // 表示上限は30個
   for (let i = 0; i < 30; i++) {
     const slot = document.createElement('div');
     slot.className = 'stamp-slot';
     if (i < displayStamps) {
       slot.classList.add('filled');
-      // isNewがtrueで、かつ最後のスタンプの場合にアニメーションクラスを付与
+      // 新規スタンプの場合、最後に追加されたものにアニメーション用クラスを付与
       if (isNew && i === points - 1) {
         slot.classList.add('newly-added');
       }
@@ -357,17 +405,20 @@ function updateStampCard(points, isNew = false) { // isNewフラグを追加
   }
 }
 
-/** 現在ポイントの読み込みとUI更新 */
-async function loadStatus(isNewStamp = false) { // isNewStampフラグは残す
+/**
+ * サーバーから現在のユーザー情報を取得し、UIを更新する
+ * @param {boolean} [isNewStamp=false] - 新規スタンプが付与された直後か
+ */
+async function loadStatus(isNewStamp = false) {
   if (!TOKEN) return;
   try {
     const r = await postJSON({ action: "me", token: TOKEN });
     if (r.ok) {
+      // ポイントとスタンプカード表示を更新
       show($("points-display"), true);
       $("points").textContent = `現在 ${r.points} pt`;
-      updateStampCard(r.points, isNewStamp); // isNewStampフラグを渡す
+      updateStampCard(r.points, isNewStamp);
 
-      // ▼▼▼【修正】ここから ▼▼▼
       // 新規スタンプの場合のみフィードバックメッセージを表示
       const feedbackEl = $('stamp-feedback');
       if (isNewStamp) {
@@ -375,8 +426,8 @@ async function loadStatus(isNewStamp = false) { // isNewStampフラグは残す
       } else {
         feedbackEl.textContent = ''; // それ以外はクリア
       }
-      // ▲▲▲【修正】ここまで ▲▲▲
 
+      // メールアドレスを更新
       if (r.email && r.email !== USER_EMAIL) {
         USER_EMAIL = r.email;
         localStorage.setItem("email", USER_EMAIL);
@@ -385,22 +436,36 @@ async function loadStatus(isNewStamp = false) { // isNewStampフラグは残す
         $("who").textContent = `ログイン中: ${USER_EMAIL}`;
       }
     } else {
+      // トークンが無効な場合は強制ログアウト
       doLogout(true, "セッションが切れました。再ログインしてください。");
     }
-  } catch (_) { /* オフライン等は無視 */ }
+  } catch (_) {
+    // ネットワークエラーなどは無視
+  }
 }
 
-/** ===== 認証（メールOTP） ===== */
+
+// --- 認証フロー ---
+
+/**
+ * [コード送信]ボタンのクリックイベント
+ * メールアドレス宛にOTP（ワンタイムパスワード）を送信するようサーバーにリクエスト
+ */
 $("sendCode").addEventListener("click", async () => {
   const email = $("email").value.trim();
-  if (!email) { $("authMsg").textContent = "メールを入力してください"; $("authMsg").className="err"; return; }
-  $("authMsg").textContent = "送信中…"; $("authMsg").className="";
+  if (!email) {
+    $("authMsg").textContent = "メールを入力してください";
+    $("authMsg").className="err";
+    return;
+  }
+  $("authMsg").textContent = "送信中…";
+  $("authMsg").className="";
   try {
     const r = await postJSON({ action: "auth_start", email });
     if (r.ok) {
       $("authMsg").textContent = "コードを送信しました。メールを確認してください。";
       $("authMsg").className = "ok";
-      show($("otpArea"), true);
+      show($("otpArea"), true); // OTP入力欄を表示
     } else {
       $("authMsg").textContent = r.error || "送信に失敗しました";
       $("authMsg").className = "err";
@@ -411,11 +476,20 @@ $("sendCode").addEventListener("click", async () => {
   }
 });
 
+/**
+ * [認証してログイン]ボタンのクリックイベント
+ * 入力されたOTPをサーバーで検証し、成功すればトークンを取得してログイン
+ */
 $("verify").addEventListener("click", async () => {
   const email = $("email").value.trim();
   const code  = $("code").value.trim();
-  if (!email || !code) { $("authMsg").textContent = "メールとコードを入力"; $("authMsg").className="err"; return; }
-  $("authMsg").textContent = "検証中…"; $("authMsg").className="";
+  if (!email || !code) {
+    $("authMsg").textContent = "メールとコードを入力";
+    $("authMsg").className="err";
+    return;
+  }
+  $("authMsg").textContent = "検証中…";
+  $("authMsg").className="";
   try {
     const r = await postJSON({ action: "auth_verify", email, code });
     if (r.ok && r.token) {
@@ -426,13 +500,13 @@ $("verify").addEventListener("click", async () => {
       
       await doLogin(r.token);
 
-      // ログイン成功後にもURLをチェックし、保留中のスタンプ処理を実行
+      // ログイン直後にURLにスタンプ用のパラメータがあれば、スタンプ処理を実行
       const urlParamsAfterLogin = new URLSearchParams(window.location.search);
       const payloadAfterLogin = urlParamsAfterLogin.get('q');
       if (payloadAfterLogin) {
         $("result").textContent = ""; // メッセージをクリア
         await sendStamp(payloadAfterLogin);
-        // 処理が完了したので、URLからパラメータを削除
+        // 処理後はURLからパラメータを除去
         history.replaceState(null, '', window.location.pathname);
       }
     } else {
@@ -445,7 +519,13 @@ $("verify").addEventListener("click", async () => {
   }
 });
 
-/** ログイン処理 */
+
+// --- ログイン・ログアウト処理 ---
+
+/**
+ * ログイン処理を実行する
+ * @param {string} token - サーバーから取得した認証トークン
+ */
 async function doLogin(token) {
   TOKEN = token;
   localStorage.setItem("token", TOKEN);
@@ -453,32 +533,45 @@ async function doLogin(token) {
   await loadStatus();
 }
 
-/** ログアウト処理 */
+/**
+ * ログアウト処理を実行する
+ * @param {boolean} [isExpired=false] - セッション切れによるログアウトか
+ * @param {string} [msg="ログアウトしました"] - 表示するメッセージ
+ */
 function doLogout(isExpired = false, msg = "ログアウトしました") {
   TOKEN = "";
   USER_EMAIL = "";
   localStorage.removeItem("token");
   localStorage.removeItem("email");
-  setLoginState(false); // これでログイン前UIが表示され、OTPフォームも隠れる
+  setLoginState(false);
   $("msg").textContent = msg;
   $("msg").className = isExpired ? "warn" : "ok";
   $("result").textContent = "";
-  $("stamp-feedback").textContent = ""; // ▼▼▼【追加】フィードバックもクリア
+  $("stamp-feedback").textContent = "";
 }
 
+/**
+ * [ログアウト]ボタンのクリックイベント
+ */
 $("topLogout").addEventListener("click", () => doLogout());
 
-/** ===== ポイント付与 ===== */
+
+// --- スタンプ・特典交換機能 ---
+
+/**
+ * サーバーにスタンプ付与をリクエストする
+ * @param {string} payload - QRコードから読み取ったペイロード
+ */
 async function sendStamp(payload) {
   $("result").textContent = ""; // 古いメッセージをクリア
   try {
     const r = await postJSON({ action: "stamp", token: TOKEN, qr_payload: payload });
     if (r.ok) {
-      // サーバから返ったポイント数でUIを直接更新し、再度/meを呼ばない
+      // 成功した場合、サーバーから返された最新のポイント数でUIを更新
       const pts = r.points;
       show($("points-display"), true);
       $("points").textContent = `現在 ${pts} pt`;
-      updateStampCard(pts, true);
+      updateStampCard(pts, true); // 新規スタンプとしてUI更新
       $("stamp-feedback").textContent = "スタンプを1つ付与しました";
     } else {
       $("result").textContent = r.error || "スタンプ処理に失敗";
@@ -490,12 +583,14 @@ async function sendStamp(payload) {
   }
 }
 
-/** ===== 特典引換 ===== */
+/**
+ * [特典と交換する]ボタンのクリックイベント
+ */
 $("redeemBtn").addEventListener("click", async () => {
-  // ダイアログでPINを取得
+  // PIN入力モーダルを表示し、入力結果を取得
   const pin = await showPinDialog();
   if (!pin) {
-    return;
+    return; // キャンセルされた場合
   }
   $("redeemMsg").textContent = "処理中…";
   $("redeemMsg").className = "";
@@ -504,7 +599,7 @@ $("redeemBtn").addEventListener("click", async () => {
     if (r.ok) {
       $("redeemMsg").textContent = `引換成功！ Ticket: ${r.ticket}`;
       $("redeemMsg").className = "ok";
-      await loadStatus(); // ポイントとスタンプカードUIを再読み込み
+      await loadStatus(); // ポイントを再読み込みしてUIを更新
     } else {
       $("redeemMsg").textContent = r.error || "引換失敗";
       $("redeemMsg").className = "err";
@@ -516,7 +611,8 @@ $("redeemBtn").addEventListener("click", async () => {
 });
 
 /**
- * 4桁PIN入力用のモーダルを表示し、PIN文字列またはnullを返す
+ * 4桁のPINコードを入力するためのモーダルダイアログを表示する
+ * @returns {Promise<string|null>} - 入力されたPINコード、またはキャンセルされた場合はnull
  */
 function showPinDialog() {
   return new Promise((resolve) => {
@@ -524,62 +620,71 @@ function showPinDialog() {
     const input    = $("pinInput");
     const btnOk    = $("pinOk");
     const btnCancel= $("pinCancel");
-    // 初期化
+    
     input.value = "";
-    // 表示
     modal.style.display = "block";
-    // ハンドラ
-    function close(result) {
+
+    // イベントハンドラを定義
+    const onOk = () => {
+      const val = input.value.trim();
+      if (val.length === 4 && /^[0-9]+$/.test(val)) {
+        close(val);
+      } else {
+        input.focus(); // 不正な入力の場合は再度フォーカス
+      }
+    };
+    const onCancel = () => close(null);
+    const onKey = (ev) => {
+      if (ev.key === 'Enter') onOk();
+      if (ev.key === 'Escape') onCancel();
+    };
+    
+    // ダイアログを閉じる際のクリーンアップ処理
+    const close = (result) => {
       modal.style.display = "none";
       btnOk.removeEventListener("click", onOk);
       btnCancel.removeEventListener("click", onCancel);
       input.removeEventListener("keypress", onKey);
       resolve(result);
-    }
-    function onOk() {
-      const val = input.value.trim();
-      if (val.length === 4 && /^[0-9]+$/.test(val)) {
-        close(val);
-      } else {
-        input.focus();
-      }
-    }
-    function onCancel() {
-      close(null);
-    }
-    function onKey(ev) {
-      if (ev.key === 'Enter') onOk();
-      if (ev.key === 'Escape') onCancel();
-    }
+    };
+
+    // イベントリスナーを設定
     btnOk.addEventListener("click", onOk);
     btnCancel.addEventListener("click", onCancel);
     input.addEventListener("keypress", onKey);
-    // フォーカス
+    
+    // 入力欄にフォーカス
     setTimeout(() => input.focus(), 0);
   });
 }
 
-// ▼▼▼【削除】showPlusOneAnimation関数を削除 ▼▼▼
 
-// 初期化
-// 初期化
+// --- 初期化処理 ---
+
+/**
+ * ページ読み込み時の初期化処理
+ */
 (async () => {
-  // ログイン状態を先に確定させる
+  // 1. LocalStorageのトークンを元に、まずログイン状態をUIに反映
   setLoginState(!!TOKEN);
-  // URLパラメータを取得
+
+  // 2. URLにQRコードのペイロード(?q=...)があるかチェック
   const urlParams = new URLSearchParams(window.location.search);
   const qrPayloadFromUrl = urlParams.get('q');
-  // q パラメータとログイン済みの両方が揃っている場合は、まずスタンプ処理を実行する
+
+  // 3. ログイン済みで、かつURLにペイロードがある場合
   if (qrPayloadFromUrl && TOKEN) {
-    // ポイントを付与し、URL をクリーンにする
+    // スタンプを付与し、処理後にURLからパラメータを削除
     await sendStamp(qrPayloadFromUrl);
     history.replaceState(null, '', window.location.pathname);
-  } else {
-    // q パラメータがない場合、または未ログインの場合は通常通り状態を読み込む
+  } 
+  // 4. それ以外の場合
+  else {
+    // ログイン済みであれば、通常通りユーザー情報を読み込む
     if (TOKEN) {
       await loadStatus();
     }
-    // 未ログインかつ q パラメータがある場合は、ログインを促す
+    // 未ログインで、かつURLにペイロードがある場合は、ログインを促すメッセージを表示
     if (qrPayloadFromUrl && !TOKEN) {
       $("authMsg").textContent = "ポイントを付けるにはログインしてください";
       $("authMsg").className = "warn";
